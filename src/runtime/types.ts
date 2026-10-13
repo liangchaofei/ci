@@ -27,8 +27,10 @@ export type Event =
 /** 所有退出都有明确原因，耗尽预算不能算成功。 */
 export type Outcome =
   | { status: "completed"; answer: string }
-  | { status: "failed"; reason: string }
-  | { status: "budget-exhausted" };
+  | { status: "failed"; reason: string; source?: "decision" | "execution" }
+  | { status: "budget-exhausted" }
+  | { status: "cancelled" }
+  | { status: "timed-out" };
 
 /** 将退出原因、最终事实和运行轨迹分别交付。 */
 export type RunResult = {
@@ -39,8 +41,14 @@ export type RunResult = {
 
 /** 外部能力由调用方注入，循环不创建模型或执行器。 */
 export type Dependencies = {
-  decide: (state: Readonly<State>) => Promise<Action>;
+  decide: (state: Readonly<State>, signal: AbortSignal) => Promise<Action>;
   executeRead: (
     action: Extract<Action, { kind: "read" }>,
+    signal: AbortSignal,
   ) => Promise<Observation>;
+};
+/** 时间预算覆盖整次运行；signal 由调用方持有控制权。 */
+export type RunOptions = {
+  timeoutMs?: number;
+  signal?: AbortSignal;
 };

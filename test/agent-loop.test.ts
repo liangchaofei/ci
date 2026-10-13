@@ -142,5 +142,9 @@ test("an execution exception returns a failed outcome", async () => {
   const dependencies = fakeDependencies(new Map());
   dependencies.executeRead = async () => { throw new Error("Simulated error"); };
   const result = await runAgentLoop(task, dependencies, 3);
-  assert.deepEqual(result.outcome, { status: "failed", reason: "Simulated error" });
+ assert.deepEqual(result.outcome, {
+  status: "failed",
+  reason: "Simulated error",
+  source: "execution",
+});
 });
