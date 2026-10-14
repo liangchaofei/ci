@@ -1,54 +1,42 @@
-/** 执行器返回的事实。失败结果没有 content，避免误用失败数据。 */
-export type Observation =
-  | { kind: "read-ok"; path: string; content: string }
-  | { kind: "read-failed"; path: string; reason: string };
+/** 本章工具值限制为可复制的 JSON 数据，不携带资源句柄。 */
+export type JsonValue = null | boolean | number | string | JsonValue[] | { [key: string]: JsonValue };
 
-/** 决策器提出的请求；finish 仍需由循环核验证据。 */
+/** id 关联一次请求与结果；arguments 必须先校验，不能相信类型断言。 */
+export type ToolCall = { id: string; name: string; arguments: unknown };
+export type ToolResult =
+  | { callId: string; toolName: string; status: "ok"; value: JsonValue }
+  | { callId: string; toolName: string; status: "error";
+      code: "unknown-tool" | "invalid-arguments" | "execution-failed"; message: string };
+
 export type Action =
-  | { kind: "read"; path: string }
+  | { kind: "tool"; call: ToolCall }
   | { kind: "finish"; answer: string }
   | { kind: "fail"; reason: string };
-
-/** 本章目标固定为读取指定路径，不接入真实磁盘。 */
-export type Task = { targetPath: string };
-/** 当前事实与已消费决策次数，属于单次运行。 */
-export type State = Task & {
-  // null 表示尚未执行，read-failed 表示已经执行但失败。
-  observation: Observation | null;
-  // 包含最后一次提出 finish 或 fail 的决策调用。
-  decisions: number;
-};
-
-/** 记录运行过程，便于核对动作与观察的顺序。 */
+export type Task = { goal: string };
+export type State = Task & { observations: ToolResult[]; decisions: number };
 export type Event =
   | { kind: "decision"; index: number; action: Action }
-  | { kind: "observation"; observation: Observation };
-
-/** 所有退出都有明确原因，耗尽预算不能算成功。 */
+  | { kind: "observation"; observation: ToolResult };
 export type Outcome =
   | { status: "completed"; answer: string }
-  | { status: "failed"; reason: string; source?: "decision" | "execution" }
+  | { status: "failed"; reason: string; source?: "decision" | "execution" | "validation" }
   | { status: "budget-exhausted" }
   | { status: "cancelled" }
   | { status: "timed-out" };
+export type RunResult = { outcome: Outcome; state: State; events: Event[] };
+export type RunOptions = { timeoutMs?: number; signal?: AbortSignal };
 
-/** 将退出原因、最终事实和运行轨迹分别交付。 */
-export type RunResult = {
-  outcome: Outcome;
-  state: State;
-  events: Event[];
-};
-
-/** 外部能力由调用方注入，循环不创建模型或执行器。 */
+/** 应用提供任务规则，循环只驱动机制。 */
 export type Dependencies = {
   decide: (state: Readonly<State>, signal: AbortSignal) => Promise<Action>;
-  executeRead: (
-    action: Extract<Action, { kind: "read" }>,
-    signal: AbortSignal,
-  ) => Promise<Observation>;
+  executeToolCall: (call: ToolCall, signal: AbortSignal) => Promise<ToolResult>;
+  validateFinish: (state: Readonly<State>, answer: string) => boolean;
 };
-/** 时间预算覆盖整次运行；signal 由调用方持有控制权。 */
-export type RunOptions = {
-  timeoutMs?: number;
-  signal?: AbortSignal;
+
+/** parse 将不可信参数变成已检查的输入，execute 才接收该类型。 */
+export type ToolDefinition<Input, Output extends JsonValue> = {
+  name: string;
+  description: string;
+  parse: (input: unknown) => Input;
+  execute: (input: Input, signal: AbortSignal) => Promise<Output>;
 };

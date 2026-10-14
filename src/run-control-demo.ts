@@ -1,43 +1,32 @@
 import { runAgentLoop } from "./runtime/agent-loop.ts";
+import { createTextTools } from "./tools/text-tools.ts";
 import type { Dependencies } from "./runtime/types.ts";
 
 const mode = process.argv[2] ?? "normal";
-if (!["normal", "timeout", "cancel", "model-error"].includes(mode)) {
-  throw new Error("Mode must be normal, timeout, cancel or model-error");
-}
+if (!["normal", "timeout", "cancel", "model-error"].includes(mode)) throw new Error("Unknown mode");
 const caller = new AbortController();
-const files = new Map([["project-name.txt", "CI Agent Harness"]]);
-
+const registry = createTextTools(new Map([["project-name.txt", "CI Agent Harness"]]));
 const dependencies: Dependencies = {
+  executeToolCall: (call, signal) => registry.execute(call, signal),
   decide: async (state, signal) => {
     if (mode === "model-error") throw new Error("Model unavailable");
-    if (mode === "timeout") {
-      // 即使适配器忽略信号，Runtime 的等待也必须能退出。
-      return new Promise(() => {});
-    }
-    if (mode === "cancel") {
-      caller.abort();
-      signal.throwIfAborted();
-    }
-    const observation = state.observation;
-    if (observation === null) return { kind: "read", path: state.targetPath };
-    if (observation.kind === "read-failed") return { kind: "fail", reason: observation.reason };
-    return { kind: "finish", answer: observation.content };
+    if (mode === "timeout") return new Promise(() => {});
+    if (mode === "cancel") { caller.abort(); signal.throwIfAborted(); }
+    const observation = state.observations.at(-1);
+    if (!observation) return { kind: "tool", call: {
+      id: "read-1", name: "read_text", arguments: { path: "project-name.txt" },
+    } };
+    return observation.status === "ok" && typeof observation.value === "string"
+      ? { kind: "finish", answer: observation.value }
+      : { kind: "fail", reason: observation.status === "error" ? observation.message : "Bad value" };
   },
-  executeRead: async (action, signal) => {
-    // 依赖也检查信号，避免在已知取消后启动新的动作。
-    signal.throwIfAborted();
-    const content = files.get(action.path);
-    return content === undefined
-      ? { kind: "read-failed", path: action.path, reason: "File not found" }
-      : { kind: "read-ok", path: action.path, content };
+  validateFinish: (state, answer) => {
+    const observation = state.observations.at(-1);
+    return observation?.status === "ok" && observation.toolName === "read_text" && observation.value === answer;
   },
 };
-
-const result = await runAgentLoop(
-  { targetPath: "project-name.txt" }, dependencies, 3,
-  { timeoutMs: 100, signal: caller.signal },
-);
+const result = await runAgentLoop({ goal: "Read the project name" }, dependencies, 3,
+  { timeoutMs: 100, signal: caller.signal });
 console.log(`outcome: ${result.outcome.status}`);
 console.log(`decisions: ${result.state.decisions}`);
 if (result.outcome.status === "completed") console.log(`answer: ${result.outcome.answer}`);
