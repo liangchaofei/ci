@@ -1,65 +1,53 @@
-import type {
-  Dependencies, Event, Outcome, RunOptions, RunResult, State, Task,
-} from "./types.ts";
+import type { Dependencies, Event, Outcome, RunOptions, RunResult, State, Task } from "./types.ts";
 import { createRunControl, RunStopped } from "./run-control.ts";
 
-/** 保留第 1 篇反馈链，增加整次运行的时间预算与取消信号。 */
+/** 通用调度不再理解文件路径或答案格式，任务规则由应用验证。 */
 export async function runAgentLoop(
-  task: Task,
-  dependencies: Dependencies,
-  maxDecisions: number,
-  options: RunOptions = {},
+  task: Task, dependencies: Dependencies, maxDecisions: number, options: RunOptions = {},
 ): Promise<RunResult> {
   if (!Number.isSafeInteger(maxDecisions) || maxDecisions < 1) {
     throw new Error("maxDecisions must be a positive safe integer");
   }
   const control = createRunControl(options);
-  let state: State = { ...task, observation: null, decisions: 0 };
+  let state: State = { ...task, observations: [], decisions: 0 };
   const events: Event[] = [];
+  const usedCallIds = new Set<string>();
   const end = (outcome: Outcome): RunResult => ({ outcome, state, events });
-  let source: "decision" | "execution" = "decision";
-
+  let source: "decision" | "execution" | "validation" = "decision";
   try {
     control.check();
     while (state.decisions < maxDecisions) {
       control.check();
       state = { ...state, decisions: state.decisions + 1 };
-      const view: State = {
-        ...state,
-        observation: state.observation ? { ...state.observation } : null,
-      };
       source = "decision";
-      const action = await control.wait(() => dependencies.decide(view, control.signal));
-      // await 后再次检查，取消与返回同时发生时不能继续执行。
+      // 当前工具结果为 JSON 数据，复制视图以避免依赖直接改任务现场。
+      const action = await control.wait(() => dependencies.decide(structuredClone(state), control.signal));
       control.check();
-      events.push({ kind: "decision", index: state.decisions, action: { ...action } });
-      if (action.kind === "fail") {
-        return end({ status: "failed", reason: action.reason });
-      }
+      events.push({ kind: "decision", index: state.decisions, action: structuredClone(action) });
+      if (action.kind === "fail") return end({ status: "failed", reason: action.reason });
       if (action.kind === "finish") {
-        const evidence = state.observation;
-        if (
-          evidence?.kind !== "read-ok" ||
-          evidence.path !== task.targetPath ||
-          evidence.content !== action.answer
-        ) {
-          return end({ status: "failed", reason: "Finish lacks matching evidence" });
-        }
-        return end({ status: "completed", answer: action.answer });
+        source = "validation";
+        const valid = dependencies.validateFinish(structuredClone(state), action.answer);
+        control.check();
+        return valid
+          ? end({ status: "completed", answer: action.answer })
+          : end({ status: "failed", reason: "Finish lacks matching evidence" });
       }
-      if (action.path !== task.targetPath) {
-        return end({ status: "failed", reason: "Read is outside task scope" });
+      const call = structuredClone(action.call);
+      if (!call.id.trim() || usedCallIds.has(call.id)) {
+        return end({ status: "failed", reason: "Call id must be nonempty and unique" });
       }
+      usedCallIds.add(call.id);
       source = "execution";
-      const raw = await control.wait(() =>
-        dependencies.executeRead({ ...action }, control.signal));
+      const raw = await control.wait(() => dependencies.executeToolCall(structuredClone(call), control.signal));
       control.check();
-      if (raw.path !== action.path) {
-        return end({ status: "failed", reason: "Observation path mismatch" });
+      if (raw.callId !== call.id || raw.toolName !== call.name) {
+        return end({ status: "failed", reason: "Tool result does not match call" });
       }
-      const observation = { ...raw };
-      events.push({ kind: "observation", observation: { ...observation } });
-      state = { ...state, observation };
+      const observation = structuredClone(raw);
+      events.push({ kind: "observation", observation: structuredClone(observation) });
+      // 失败工具结果也保存，下一次决策才能据此修正或结束。
+      state = { ...state, observations: [...state.observations, observation] };
     }
     control.check();
     return end({ status: "budget-exhausted" });
@@ -68,7 +56,6 @@ export async function runAgentLoop(
     const reason = error instanceof Error ? error.message : String(error);
     return end({ status: "failed", reason, source });
   } finally {
-    // 成功、失败或停止都清理本次定时器和调用方监听器。
     control.dispose();
   }
 }
