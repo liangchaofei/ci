@@ -13,7 +13,20 @@ export type Action =
   | { kind: "finish"; answer: string }
   | { kind: "fail"; reason: string };
 export type Task = { goal: string };
-export type State = Task & { observations: ToolResult[]; decisions: number };
+/** 消息记录是运行事实的有序表达，尚不是任何供应商的请求协议。 */
+export type AgentMessage =
+  | { role: "user"; content: string }
+  | { role: "assistant"; action: Action }
+  | { role: "tool"; result: ToolResult };
+export type State = Task & {
+  observations: ToolResult[];
+  messages: AgentMessage[];
+  decisions: number;
+};
+/** 本章工具目录只提供名称与描述；参数 schema 在模型接入时适配。 */
+export type ToolDescriptor = { name: string; description: string };
+/** 决策输入只暴露选定消息与工具目录，不携带整个 Runtime 状态。 */
+export type DecisionContext = { messages: AgentMessage[]; tools: ToolDescriptor[] };
 export type Event =
   | { kind: "decision"; index: number; action: Action }
   | { kind: "observation"; observation: ToolResult };

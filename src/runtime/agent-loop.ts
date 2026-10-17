@@ -9,7 +9,10 @@ export async function runAgentLoop(
     throw new Error("maxDecisions must be a positive safe integer");
   }
   const control = createRunControl(options);
-  let state: State = { ...task, observations: [], decisions: 0 };
+  let state: State = {
+    ...task, observations: [], decisions: 0,
+    messages: [{ role: "user", content: task.goal }],
+  };
   const events: Event[] = [];
   const usedCallIds = new Set<string>();
   const end = (outcome: Outcome): RunResult => ({ outcome, state, events });
@@ -24,6 +27,9 @@ export async function runAgentLoop(
       const action = await control.wait(() => dependencies.decide(structuredClone(state), control.signal));
       control.check();
       events.push({ kind: "decision", index: state.decisions, action: structuredClone(action) });
+      // 只记录已接纳的完整动作；取消后的迟到响应不能进入记录。
+      state = { ...state, messages: [...state.messages,
+        { role: "assistant", action: structuredClone(action) }] };
       if (action.kind === "fail") return end({ status: "failed", reason: action.reason });
       if (action.kind === "finish") {
         source = "validation";
@@ -47,7 +53,8 @@ export async function runAgentLoop(
       const observation = structuredClone(raw);
       events.push({ kind: "observation", observation: structuredClone(observation) });
       // 失败工具结果也保存，下一次决策才能据此修正或结束。
-      state = { ...state, observations: [...state.observations, observation] };
+      state = { ...state, observations: [...state.observations, observation],
+        messages: [...state.messages, { role: "tool", result: structuredClone(observation) }] };
     }
     control.check();
     return end({ status: "budget-exhausted" });
