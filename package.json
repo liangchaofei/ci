@@ -1,17 +1,21 @@
 {
-  "name": "ci-agent-harness",
+  "name": "agent-runtime-lab",
   "private": true,
   "type": "module",
   "engines": {
     "node": ">=22.18.0"
   },
   "scripts": {
-    "test": "node --test",
+    "test": "node --test test/*.test.ts",
     "typecheck": "tsc --noEmit",
-    "check": "npm run typecheck && npm test"
+    "check": "npm run typecheck && npm test",
+    "site:dev": "vitepress dev site",
+    "site:build": "vitepress build site",
+    "site:preview": "vitepress preview site"
   },
   "devDependencies": {
     "@types/node": "22.20.5",
-    "typescript": "7.0.2"
+    "typescript": "7.0.2",
+    "vitepress": "2.0.0-alpha.20"
   }
 }

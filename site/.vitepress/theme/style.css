@@ -1,0 +1,45 @@
+:root {
+  --vp-font-family-base: "PingFang SC", "Microsoft YaHei", "Noto Sans CJK SC", sans-serif;
+  --vp-font-family-mono: "SFMono-Regular", Consolas, "Liberation Mono", monospace;
+  --vp-c-brand-1: #28734f;
+  --vp-c-brand-2: #35875e;
+  --vp-c-brand-3: #46a170;
+  --vp-c-brand-soft: #e6f3e9;
+  --vp-c-bg: #fbfcf8;
+  --vp-c-bg-soft: #f2f7f1;
+  --vp-c-bg-alt: #eaf2e9;
+}
+
+.VPHomeHero .name { letter-spacing: -.05em; }
+.VPHomeHero .text { max-width: 700px; line-height: 1.3; }
+.VPHomeHero .tagline { max-width: 690px; line-height: 1.85; }
+.VPFeature { border: 1px solid #d8e8d9; }
+.vp-doc p, .vp-doc li { line-height: 1.95; }
+.vp-doc h2 { margin-top: 2.6rem; }
+.vp-doc h3 { margin-top: 1.8rem; }
+.vp-doc table { display: block; overflow-x: auto; }
+.vp-doc .custom-block { border-radius: 10px; }
+
+.course-status {
+  border: 1px solid #c7ddcd;
+  background: #edf7ee;
+  border-radius: 12px;
+  padding: 18px 20px;
+  margin: 26px 0;
+}
+.course-status strong { color: #236a49; }
+.course-status p { margin: 4px 0 0; }
+
+.runtime-chain {
+  display: grid;
+  gap: 9px;
+  margin: 26px 0;
+}
+.runtime-chain > div {
+  border: 1px solid #d8e6da;
+  background: #fff;
+  padding: 13px 16px;
+  border-radius: 9px;
+}
+.runtime-chain strong { color: #246b49; margin-right: 8px; }
+.runtime-chain .arrow { text-align: center; border: 0; background: transparent; padding: 0; color: #78ac85; }
