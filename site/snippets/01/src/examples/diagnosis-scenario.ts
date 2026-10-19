@@ -23,7 +23,7 @@ const sourceCode =
 
 /** 模拟单个读取工具；只接受本例支持的名称和路径。 */
 export async function simulateReadSource(call: ToolCall): Promise<ToolResult> {
-  console.log(`[execute] ${call.name} path=${String(call.arguments.path)}`);
+  console.log(`[执行工具 execute] ${call.name} 文件路径（path）=${String(call.arguments.path)}`);
 
   if (call.name !== "read_source") {
     return { callId: call.id, status: "error", message: "Unsupported tool" };
@@ -43,7 +43,7 @@ const diagnosis = "sum([]) fails because reduce has no initial value";
 /** 按状态返回预设动作，扮演模型；不能分析任意源码。 */
 export async function scriptedDecide(state: Readonly<State>): Promise<Action> {
   const roles = state.messages.map((message) => message.role).join(" -> ");
-  console.log(`[decide ${state.decisions + 1}] roles=${roles}`);
+  console.log(`[决策 decide ${state.decisions + 1}] 消息角色（roles）=${roles}`);
 
   const lastMessage = state.messages.at(-1);
   if (lastMessage?.role === "user") {
