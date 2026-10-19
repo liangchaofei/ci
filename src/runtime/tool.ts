@@ -1,0 +1,39 @@
+/** 校验成功时交出已确认的参数；失败时不提供可执行参数。 */
+export type ParseResult<Args> =
+  | { ok: true; value: Args }
+  | { ok: false; message: string };
+
+/** 工具内部输出不带调用身份，身份由统一执行入口添加。 */
+export type ToolOutput =
+  | { status: "ok"; value: unknown }
+  | { status: "error"; code: "invalid-arguments"; message: string };
+
+/** 注册表持有的工具入口，原始输入必须经过 invoke 中的校验。 */
+export type Tool = {
+  readonly name: string;
+  readonly invoke: (input: unknown) => Promise<ToolOutput>;
+};
+
+/** 同一个 Args 连接校验结果与执行体的参数。 */
+export type ToolDefinition<Args> = {
+  name: string;
+  parse: (input: unknown) => ParseResult<Args>;
+  execute: (args: Args) => Promise<unknown>;
+};
+
+
+/** 封装校验顺序，使执行体只接收 parse 成功产出的参数。 */
+export function defineTool<Args>(definition: ToolDefinition<Args>): Tool {
+  return {
+    name: definition.name,
+    async invoke(input) {
+      const parsed = definition.parse(input);
+      if (!parsed.ok) {
+        return { status: "error", code: "invalid-arguments", message: parsed.message };
+      }
+
+      const value = await definition.execute(parsed.value);
+      return { status: "ok", value };
+    },
+  };
+}

@@ -3,13 +3,18 @@ import type { Dependencies } from "../runtime/types.ts";
 import {
   hasDiagnosisEvidence,
   scriptedDecide,
-  simulateReadSource,
 } from "./diagnosis-scenario.ts";
+import { createToolRegistry } from "../runtime/tool-registry.ts";
+import { createToolExecutor } from "../runtime/tool-executor.ts";
+import { readSourceTool } from "./read-source-tool.ts";
 
-// 入口只组装依赖；任务场景与循环调度各有自己的文件。
+// 入口注册本次任务允许使用的工具，再组装统一执行入口。
+const registry = createToolRegistry([readSourceTool]);
+const executeTool = createToolExecutor(registry);
+console.log(`已注册工具（tools）: ${registry.names().join(", ")}`);
 const dependencies: Dependencies = {
   decide: scriptedDecide,
-  executeTool: simulateReadSource,
+  executeTool,
   validateFinish: hasDiagnosisEvidence,
 };
 
@@ -24,4 +29,9 @@ if (result.outcome.status === "completed") {
   console.log(`最终答案（answer）: ${result.outcome.answer}`);
 } else if (result.outcome.status === "failed") {
   console.log(`失败信息（failure）: ${result.outcome.source}: ${result.outcome.reason}`);
+}
+for (const message of result.state.messages) {
+  if (message.role === "tool") {
+    console.log(`工具观察（toolResult）: ${JSON.stringify(message.result)}`);
+  }
 }
