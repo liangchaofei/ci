@@ -37,10 +37,10 @@ state = {
   messages: [...state.messages, { role: "assistant", action: nextAction }],
 };
 
-console.log(`next-action: ${nextAction.kind}`);
-console.log(`decisions: ${state.decisions}`);
-console.log(`messages: ${state.messages.map((message) => message.role).join(" -> ")}`);
+console.log(`下一步动作（next-action）: ${nextAction.kind}`);
+console.log(`决策次数（decisions）: ${state.decisions}`);
+console.log(`消息顺序（messages）: ${state.messages.map((message) => message.role).join(" -> ")}`);
 if (nextAction.kind === "finish") {
-  console.log(`proposed-answer: ${nextAction.answer}`);
+  console.log(`候选答案（proposed-answer）: ${nextAction.answer}`);
 }
 // #endregion next_turn

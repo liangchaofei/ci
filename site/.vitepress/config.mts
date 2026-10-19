@@ -24,6 +24,10 @@ export default defineConfig({
         items: [
           { text: "00 项目起点与 Runtime 架构", link: "/guide/00-project-foundation" },
           { text: "01 第一条反馈闭环", link: "/guide/01-feedback-loop" },
+          { text: "02 消息、State 与 Context", link: "/guide/02-state-context" },
+          { text: "03 工具契约与执行入口", link: "/guide/03-tool-execution" },
+          { text: "04 停止、取消与时间边界", link: "/guide/04-run-control" },
+          { text: "05 接入 DeepSeek 真实模型", link: "/guide/05-deepseek-model" },
         ],
       },
     ],
