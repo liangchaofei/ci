@@ -45,10 +45,14 @@ export type RunResult = { state: State; outcome: Outcome };
 
 /** 由调用方提供模型、工具和任务完成规则，循环只负责调度。 */
 export type Dependencies = {
-  // 接收当前状态的副本，提出下一步；本章由脚本函数扮演模型。
-  decide: (state: Readonly<State>) => Promise<Action>;
+  // 只接收本轮准备好的消息，不接收 Runtime 的控制字段。
+  decide: (context: DecisionContext) => Promise<Action>;
   // 取得一次请求的实际结果，必须回传同一个调用 ID。
   executeTool: (call: ToolCall) => Promise<ToolResult>;
   // 核对当前场景的完成证据，不把模型的 finish 直接当成成功。
   validateFinish: (state: Readonly<State>, answer: string) => boolean;
+};
+/** 本轮决策可见的输入；控制字段仍由 Runtime 持有。 */
+export type DecisionContext = {
+  readonly messages: readonly Message[];
 };

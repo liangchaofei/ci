@@ -1,3 +1,4 @@
+import { buildDecisionContext } from "./context.ts";
 import type {
   Action,
   Dependencies,
@@ -6,6 +7,7 @@ import type {
   State,
   ToolResult,
 } from "./types.ts";
+
 
 /** 保护循环拥有的消息；当前 State 只包含可结构化复制的数据。 */
 function snapshot(state: State): Readonly<State> {
@@ -44,9 +46,11 @@ export async function runAgentLoop(
   while (state.decisions < maxDecisions) {
     let action: Action;
     try {
-      action = structuredClone(await dependencies.decide(snapshot(state)));
+    // 每轮都重新构造，才能包含上一轮刚写回的工具结果。
+    const context = buildDecisionContext(state);
+    action = structuredClone(await dependencies.decide(context));
     } catch (error) {
-      return { state, outcome: failure(errorMessage(error), "decision") };
+    return { state, outcome: failure(errorMessage(error), "decision") };
     }
 
     // 先记下模型提出了什么，再判断能否执行或完成。

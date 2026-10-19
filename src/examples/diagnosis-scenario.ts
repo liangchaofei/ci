@@ -1,4 +1,4 @@
-import type { Action, State, ToolCall, ToolResult } from "../runtime/types.ts";
+import type { Action, DecisionContext, State, ToolCall, ToolResult } from "../runtime/types.ts";
 
 
 const sourcePath = "src/sum.ts";
@@ -37,11 +37,11 @@ export async function simulateReadSource(call: ToolCall): Promise<ToolResult> {
 const diagnosis = "sum([]) fails because reduce has no initial value";
 
 /** 按状态返回预设动作，扮演模型；不能分析任意源码。 */
-export async function scriptedDecide(state: Readonly<State>): Promise<Action> {
-  const roles = state.messages.map((message) => message.role).join(" -> ");
-  console.log(`[决策 decide ${state.decisions + 1}] 消息角色（roles）=${roles}`);
+export async function scriptedDecide(context: DecisionContext): Promise<Action> {
+  const roles = context.messages.map((message) => message.role).join(" -> ");
+  console.log(`[决策 decide] 消息角色（roles）=${roles}`);
 
-  const lastMessage = state.messages.at(-1);
+  const lastMessage = context.messages.at(-1);
   if (lastMessage?.role === "user") {
     // 复用阶段一的请求创建函数，实际执行仍由调用方安排。
     return { kind: "tool", call: createReadSourceCall() };
