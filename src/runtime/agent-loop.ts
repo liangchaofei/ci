@@ -78,7 +78,12 @@ export async function runAgentLoop(
       result = structuredClone(await dependencies.executeTool(structuredClone(action.call)));
     } catch (error) {
       // 执行错误也是观察，下一轮决策需要知道这次调用失败了。
-      result = { callId: action.call.id, status: "error", message: errorMessage(error) };
+        result = {
+            callId: action.call.id,
+            status: "error",
+            code: "tool-error",
+            message: errorMessage(error),
+        };
     }
 
     // 一个调用的结果不能写到另一个调用名下。

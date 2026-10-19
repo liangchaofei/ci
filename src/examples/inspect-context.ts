@@ -1,6 +1,9 @@
 import { buildDecisionContext } from "../runtime/context.ts";
 import type { DecisionContext, State } from "../runtime/types.ts";
-import { createReadSourceCall, simulateReadSource } from "./diagnosis-scenario.ts";
+import { createReadSourceCall } from "./diagnosis-scenario.ts";
+import { createToolRegistry } from "../runtime/tool-registry.ts";
+import { createToolExecutor } from "../runtime/tool-executor.ts";
+import { readSourceTool } from "./read-source-tool.ts";
 
 
 /** 只展示输入，不修改状态，也不发起下一次决策。 */
@@ -26,9 +29,9 @@ const firstContext = buildDecisionContext(state);
 showContext("读取前", firstContext);
 
 
-// 手动补入一次请求与结果，单独观察 State 到 Context 的变化。
 const call = createReadSourceCall();
-const result = await simulateReadSource(call);
+const executeTool = createToolExecutor(createToolRegistry([readSourceTool]));
+const result = await executeTool(call);
 state = {
   ...state,
   decisions: state.decisions + 1,

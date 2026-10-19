@@ -6,10 +6,13 @@ export type ToolCall = {
 };
 
 
-/** 工具执行后得到的事实；失败不能伪装成成功值。 */
+/** 可由程序区分的工具失败原因，不依赖错误文字匹配。 */
+export type ToolErrorCode = "unknown-tool" | "invalid-arguments" | "tool-error";
+
+/** 工具观察始终关联原请求；错误也会进入下一轮输入。 */
 export type ToolResult =
   | { callId: string; status: "ok"; value: unknown }
-  | { callId: string; status: "error"; message: string };
+  | { callId: string; status: "error"; code: ToolErrorCode; message: string };
 
 
 /** 模型提出的请求。finish 仍要经过应用的完成验证。 */
