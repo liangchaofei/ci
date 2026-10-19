@@ -31,7 +31,7 @@ showContext("读取前", firstContext);
 
 const call = createReadSourceCall();
 const executeTool = createToolExecutor(createToolRegistry([readSourceTool]));
-const result = await executeTool(call);
+const result = await executeTool(call, new AbortController().signal);
 state = {
   ...state,
   decisions: state.decisions + 1,
