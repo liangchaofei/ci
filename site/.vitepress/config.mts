@@ -27,6 +27,7 @@ export default defineConfig({
           { text: "02 消息、State 与 Context", link: "/guide/02-state-context" },
           { text: "03 工具契约与执行入口", link: "/guide/03-tool-execution" },
           { text: "04 停止、取消与时间边界", link: "/guide/04-run-control" },
+          { text: "05 接入 DeepSeek 真实模型", link: "/guide/05-deepseek-model" },
         ],
       },
     ],
