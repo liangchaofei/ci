@@ -16,7 +16,7 @@ const cases: { label: string; call: ToolCall }[] = [
 
 for (const item of cases) {
   console.log(`检查场景（case）: ${item.label}`);
-  const result = await executeTool(item.call);
+ const result = await executeTool(item.call, new AbortController().signal);
   console.log(`调用编号（callId）: ${result.callId}`);
   console.log(`工具状态（status）: ${result.status}`);
   if (result.status === "error") {

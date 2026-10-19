@@ -1,3 +1,6 @@
+import type { StopOutcome } from "./run-control.ts";
+
+
 /** 模型提出的工具请求；id 标识一次调用，name 标识工具种类。 */
 export type ToolCall = {
   id: string;
@@ -42,16 +45,16 @@ export type Outcome =
       reason: string;
       source: "decision" | "execution" | "validation";
     }
-  | { status: "budget-exhausted" };
+  | { status: "budget-exhausted" }
+  | StopOutcome;
 
 export type RunResult = { state: State; outcome: Outcome };
-
 /** 由调用方提供模型、工具和任务完成规则，循环只负责调度。 */
 export type Dependencies = {
-  // 只接收本轮准备好的消息，不接收 Runtime 的控制字段。
-  decide: (context: DecisionContext) => Promise<Action>;
+  // 接收本轮消息与取消信号，不接收 Runtime 的状态管理字段。
+  decide: (context: DecisionContext, signal: AbortSignal) => Promise<Action>;
   // 取得一次请求的实际结果，必须回传同一个调用 ID。
-  executeTool: (call: ToolCall) => Promise<ToolResult>;
+  executeTool: (call: ToolCall, signal: AbortSignal) => Promise<ToolResult>;
   // 核对当前场景的完成证据，不把模型的 finish 直接当成成功。
   validateFinish: (state: Readonly<State>, answer: string) => boolean;
 };
