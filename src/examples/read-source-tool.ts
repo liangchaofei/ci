@@ -28,6 +28,13 @@ function parseReadSourceArgs(input: unknown): ParseResult<ReadSourceArgs> {
 /** 仍是模拟读取；执行日志只出现在校验通过后的工具体中。 */
 export const readSourceTool = defineTool<ReadSourceArgs>({
   name: "read_source",
+  description: "读取指定源码文件的内容；本例仅提供 src/sum.ts。",
+  parameters: {
+    type: "object",
+    properties: { path: { type: "string", enum: [sourcePath] } },
+    required: ["path"],
+    additionalProperties: false,
+  },
   parse: parseReadSourceArgs,
   async execute(args) {
     console.log(`[执行工具 execute] read_source 文件路径（path）=${args.path}`);

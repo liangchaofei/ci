@@ -11,12 +11,16 @@ export type ToolOutput =
 /** 工具入口接收原始参数和本次运行的停止信号。 */
 export type Tool = {
   readonly name: string;
+  readonly description: string;
+  readonly parameters: Record<string, unknown>;
   readonly invoke: (input: unknown, signal: AbortSignal) => Promise<ToolOutput>;
 };
 
 /** 同一个 Args 连接检查结果与执行体；signal 继续传给具体操作。 */
 export type ToolDefinition<Args> = {
   name: string;
+  description: string;
+  parameters: Record<string, unknown>;
   parse: (input: unknown) => ParseResult<Args>;
   execute: (args: Args, signal: AbortSignal) => Promise<unknown>;
 };
@@ -25,6 +29,8 @@ export type ToolDefinition<Args> = {
 export function defineTool<Args>(definition: ToolDefinition<Args>): Tool {
   return {
     name: definition.name,
+    description: definition.description,
+    parameters: structuredClone(definition.parameters),
     async invoke(input, signal) {
       signal.throwIfAborted();
       const parsed = definition.parse(input);

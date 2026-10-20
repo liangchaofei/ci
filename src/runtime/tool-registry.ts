@@ -18,7 +18,12 @@ export function createToolRegistry(tools: readonly Tool[]): ToolRegistry {
       throw new Error(`Duplicate tool: ${tool.name}`);
     }
     // 保存名称与入口的当前值，而不是交出可变的注册对象。
-    byName.set(tool.name, { name: tool.name, invoke: tool.invoke });
+    byName.set(tool.name, {
+        name: tool.name,
+        description: tool.description,
+        parameters: structuredClone(tool.parameters),
+        invoke: tool.invoke,
+    });
   }
 
   return {
