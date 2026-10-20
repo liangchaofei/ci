@@ -5,6 +5,8 @@ import { requestDeepSeekEvents } from "./stream-http.ts";
 import { collectDeepSeekAction } from "./stream-protocol.ts";
 import type { ProgressListener } from "./stream-protocol.ts";
 import { buildDeepSeekMessages, decodeDeepSeekAction } from "./protocol.ts";
+import { toolCallsOf, previousToolCallIds } from "../../runtime/action-tools.ts";
+import { validateToolBatch } from "../../runtime/tool-batch.ts";
 
 export type DeepSeekOptions = {
   apiKey: string;
@@ -51,13 +53,9 @@ export function createDeepSeekDecider(options: DeepSeekOptions): Dependencies["d
       action = decodeDeepSeekAction(payload);
     }
 
-    // 同一工具可以再用，但本轮请求不能冒用历史调用的身份。
-    if (action.kind === "tool" && context.messages.some((message) =>
-      message.role === "assistant" && message.action.kind === "tool" &&
-      message.action.call.id === action.call.id
-    )) {
-      throw new Error("Duplicate tool call id in this run");
-    }
+    // 单次与批次调用共用历史身份检查；模型不能复用先前的 ID。
+    const calls = toolCallsOf(action);
+    if (calls.length > 0) validateToolBatch(calls, previousToolCallIds(context.messages));
 
     console.log(`[模型动作 action] ${action.kind}`);
     return action;

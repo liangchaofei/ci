@@ -1,16 +1,18 @@
 import type { Action } from "../../runtime/types.ts";
 import { decodeDeepSeekAction } from "./protocol.ts";
+import { maxToolCallsPerDecision } from "../../runtime/tool-batch.ts";
 
 
 /** 暂存进度只供显示；不是 Action，也不写进 State。 */
 export type ModelProgress =
   | { type: "text-delta"; delta: string }
-  | { type: "tool-arguments-delta"; delta: string };
+  | { type: "tool-arguments-delta"; index: number; delta: string };
+
 export type ProgressListener = (event: ModelProgress) => void;
 
 type StreamDraft = {
   content: string;
-  call?: { id: string; name: string; arguments: string };
+  calls: Map<number, { id: string; name: string; arguments: string }>;
   finishReason?: string;
 };
 
@@ -18,48 +20,52 @@ function record(value: unknown, label: string): Record<string, unknown> {
   if (typeof value !== "object" || value === null || Array.isArray(value)) {
     throw new Error(`Invalid ${label}: expected object`);
   }
+
   return value as Record<string, unknown>;
 }
 
 /** ID 与名称是调用身份信息；本适配器不接受中途换成另一份身份。 */
 function metadata(previous: string, value: unknown, label: string): string {
   if (value == null || value === "") return previous;
+
+  // 已经保存的身份只能再次确认，不能被后续片段换掉。
   if (typeof value !== "string") throw new Error(`Invalid ${label}`);
   if (previous !== "" && previous !== value) throw new Error(`Changed ${label}`);
+
   return value;
 }
+/** 每个 index 有独立草稿，交错到达也不会把两份参数拼到一起。 */
+function appendToolDeltas(draft: StreamDraft, value: unknown): ModelProgress[] {
+  if (!Array.isArray(value) || value.length > maxToolCallsPerDecision) {
+    throw new Error("Invalid tool deltas");
+  }
 
-/** 只拼接第 0 个调用的参数文本；此处从不尝试执行或解析半份参数。 */
-function appendToolDelta(draft: StreamDraft, value: unknown): string {
-  // 先确认本片只有一个调用；空数组表示这次没有新增工具内容。
-  if (!Array.isArray(value)) throw new Error("Invalid tool deltas");
-  if (value.length === 0) return "";
-  if (value.length !== 1) throw new Error("Expected one tool delta");
+  const progress: ModelProgress[] = [];
+  for (const item of value) {
+    const delta = record(item, "tool delta");
+    const index = delta.index;
+    if (typeof index !== "number" || !Number.isInteger(index) || index < 0 || index >= maxToolCallsPerDecision) {
+      throw new Error("Tool index must be an integer between 0 and 7");
+    }
+    if (delta.type != null && delta.type !== "function") throw new Error("Unsupported tool type");
 
-  // 当前只支持第 0 个函数调用，不能把其他调用的片段混进来。
-  const delta = record(value[0], "tool delta");
-  if (delta.index !== 0) throw new Error("Only tool index 0 is supported");
-  if (delta.type != null && delta.type !== "function") throw new Error("Unsupported tool type");
+    const fn = delta.function == null ? {} : record(delta.function, "function delta");
+    const call = draft.calls.get(index) ?? { id: "", name: "", arguments: "" };
+    call.id = metadata(call.id, delta.id, "call id");
+    call.name = metadata(call.name, fn.name, "tool name");
 
-  // 首片创建调用草稿，后续片段复用它，保留之前的身份与参数。
-  const fn = delta.function == null ? {} : record(delta.function, "function delta");
-  const call = draft.call ?? { id: "", name: "", arguments: "" };
-  call.id = metadata(call.id, delta.id, "call id");
-  call.name = metadata(call.name, fn.name, "tool name");
+    const part = fn.arguments ?? "";
+    if (typeof part !== "string") throw new Error("Invalid arguments delta");
+    call.arguments += part;
+    draft.calls.set(index, call);
 
-  // 参数仍是文本：先确认本片类型，不在这里解析半份 JSON。
-  const part = fn.arguments ?? "";
-  if (typeof part !== "string") throw new Error("Invalid arguments delta");
+    if (part !== "") progress.push({ type: "tool-arguments-delta", index, delta: part });
+  }
 
-  // 只追加到本次决策的草稿，不写 State，也不执行工具。
-  call.arguments += part;
-  draft.call = call;
-
-  // 交回本次新增文本，供上层显示进度，而不是交回全部参数。
-  return part;
+  return progress;
 }
 
-/** 一个完整 SSE data JSON 对应一次调用；只更新本次决策的局部草稿。 */
+/** 每次处理一条完整 SSE data JSON；只更新本次决策的局部草稿。 */
 function appendChunk(draft: StreamDraft, payload: unknown, onProgress?: ProgressListener): void {
   // 完整 SSE 事件仍是外部数据，先检查候选结构与本次接收状态。
   const root = record(payload, "stream chunk");
@@ -83,10 +89,10 @@ function appendChunk(draft: StreamDraft, payload: unknown, onProgress?: Progress
   if (typeof text !== "string") throw new Error("Invalid text delta");
   draft.content += text;
 
-  let argumentsPart = "";
-  if (delta.tool_calls != null) argumentsPart = appendToolDelta(draft, delta.tool_calls);
+  const toolProgress = delta.tool_calls == null ? [] : appendToolDeltas(draft, delta.tool_calls);
+  const argumentsSize = [...draft.calls.values()].reduce((sum, call) => sum + call.arguments.length, 0);
 
-  if (draft.content.length + (draft.call?.arguments.length ?? 0) > 1_000_000) {
+  if (draft.content.length + argumentsSize > 1_000_000) {
     throw new Error("Model draft is too large");
   }
 
@@ -98,31 +104,33 @@ function appendChunk(draft: StreamDraft, payload: unknown, onProgress?: Progress
 
   // 仅传出字符串片段，不暴露草稿对象。观察者必须同步；抛错将中止本次决策。
   if (text !== "") onProgress?.({ type: "text-delta", delta: text });
-  if (argumentsPart !== "") onProgress?.({ type: "tool-arguments-delta", delta: argumentsPart });
+  for (const event of toolProgress) onProgress?.(event);
 }
 
 
-/** 只在收到 [DONE] 后调用，并复用第 5 篇的最终响应检查。 */
+/** 先按调用位置还原顺序，再复用最终动作检查；索引缺口不能悄悄丢弃。 */
 function completeDraft(draft: StreamDraft): Action {
   if (draft.finishReason === undefined) throw new Error("Stream ended without finish_reason");
+  const entries = [...draft.calls.entries()].sort(([left], [right]) => left - right);
+  if (entries.some(([index], position) => index !== position)) {
+    throw new Error("Tool indexes must be contiguous from 0");
+  }
 
-  // 恢复为原解码器认识的完整响应形状，复用同一套最终检查。
   return decodeDeepSeekAction({
     choices: [{
       finish_reason: draft.finishReason,
       message: {
         role: "assistant",
         content: draft.content,
-        tool_calls: draft.call ? [{
-          id: draft.call.id,
+        tool_calls: entries.map(([, call]) => ({
+          id: call.id,
           type: "function",
-          function: { name: draft.call.name, arguments: draft.call.arguments },
-        }] : [],
+          function: { name: call.name, arguments: call.arguments },
+        })),
       },
     }],
   });
 }
-
 /** 进度先显示，完整合法的 Action 最后返回；EOF 不代替协议结束标志。 */
 export async function collectDeepSeekAction(
   events: AsyncIterable<string>,
@@ -130,7 +138,7 @@ export async function collectDeepSeekAction(
   onProgress?: ProgressListener,
 ): Promise<Action> {
   // 草稿只属于这一次模型请求，不与其他轮次共享。
-  const draft: StreamDraft = { content: "" };
+  const draft: StreamDraft = { content: "", calls: new Map() };
   signal.throwIfAborted();
 
   for await (const data of events) {
