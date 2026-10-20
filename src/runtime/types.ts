@@ -17,10 +17,9 @@ export type ToolResult =
   | { callId: string; status: "ok"; value: unknown }
   | { callId: string; status: "error"; code: ToolErrorCode; message: string };
 
-
 /** 模型提出的请求。finish 仍要经过应用的完成验证。 */
 export type Action =
-  | { kind: "tool"; call: ToolCall }
+  | { kind: "tool"; call: ToolCall; content?: string | null }
   | { kind: "finish"; answer: string }
   | { kind: "fail"; reason: string };
 
