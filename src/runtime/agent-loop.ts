@@ -1,3 +1,6 @@
+import { createToolBatchRunner, validateToolBatch } from "./tool-batch.ts";
+import type { ToolBatchOptions } from "./tool-batch.ts";
+import { toolCallsOf, previousToolCallIds } from "./action-tools.ts";
 import { createRunControl } from "./run-control.ts";
 import type { RunOptions } from "./run-control.ts";
 import { buildDecisionContext } from "./context.ts";
@@ -10,6 +13,8 @@ import type {
   ToolResult,
 } from "./types.ts";
 
+/** 执行调度配置独立于 RunControl，旧调用方可继续不提供。 */
+export type RunAgentOptions = RunOptions & { toolExecution?: ToolBatchOptions };
 
 /** 保护循环拥有的消息；当前 State 只包含可结构化复制的数据。 */
 function snapshot(state: State): Readonly<State> {
@@ -27,18 +32,19 @@ function errorMessage(error: unknown): string {
 
 /**
  * 驱动一次任务，并返回最后状态与退出原因。
- * maxDecisions 限制取得 Action 的次数；一次决策最多请求一个工具。
+ * maxDecisions 限制取得 Action 的次数；一批工具仍只计一次决策。
  */
 export async function runAgentLoop(
   goal: string,
   dependencies: Dependencies,
   maxDecisions: number,
-  options: RunOptions = {},
+  options: RunAgentOptions = {},
 ): Promise<RunResult> {
   if (!Number.isInteger(maxDecisions) || maxDecisions < 1) {
     throw new RangeError("maxDecisions must be a positive integer");
   }
 
+  const runBatch = createToolBatchRunner(dependencies.executeTool, options.toolExecution);
   const control = createRunControl(options);
 
   // State 只属于这次调用；再次运行会得到新的消息与计数。
@@ -51,12 +57,20 @@ export async function runAgentLoop(
   try {
     while (state.decisions < maxDecisions) {
       control.check();
+
       let action: Action;
+
       try {
         // 每轮都重新构造，才能包含上一轮刚写回的工具结果。
         const context = buildDecisionContext(state);
         action = structuredClone(await control.wait((signal) => dependencies.decide(context, signal)));
         control.check();
+
+        // 脚本与真实模型都必须经过运行边界，不能复用历史调用身份。
+        const calls = toolCallsOf(action);
+        if (calls.length > 0 || action.kind === "tools") {
+          validateToolBatch(calls, previousToolCallIds(state.messages));
+        }
       } catch (error) {
         if (control.outcome()) throw error;
         return { state, outcome: failure(errorMessage(error), "decision") };
@@ -71,41 +85,41 @@ export async function runAgentLoop(
       if (action.kind === "fail") {
         return { state, outcome: failure(action.reason, "decision") };
       }
+
       if (action.kind === "finish") {
         try {
           // 模型的完成请求不是成功事实，必须交给应用规则核对。
           const accepted = dependencies.validateFinish(snapshot(state), action.answer);
           control.check();
+
           if (accepted) {
             return { state, outcome: { status: "completed", answer: action.answer } };
           }
+
           return { state, outcome: failure("Completion lacks verified evidence", "validation") };
         } catch (error) {
           if (control.outcome()) throw error;
           return { state, outcome: failure(errorMessage(error), "validation") };
         }
       }
-      let result: ToolResult;
+
+      const calls = toolCallsOf(action);
+      let results: ToolResult[];
+
       try {
-        result = structuredClone(await control.wait(
-          (signal) => dependencies.executeTool(structuredClone(action.call), signal),
-        ));
+        // 等待整批收齐；执行器只拿到请求副本，没有 State 引用。
+        results = await control.wait((signal) => runBatch(calls, signal));
         control.check();
       } catch (error) {
         if (control.outcome()) throw error;
-        // 执行错误也是观察，下一轮决策需要知道这次调用失败了。
-        result = { callId: action.call.id, status: "error", code: "tool-error", message: errorMessage(error) };
+        return { state, outcome: failure(errorMessage(error), "execution") };
       }
 
-      // 一个调用的结果不能写到另一个调用名下。
-      if (result.callId !== action.call.id) {
-        return {
-          state,
-          outcome: failure("Tool result callId does not match the request", "execution"),
-        };
-      }
-      // 只有确认属于本次调用的结果才能进入 State，供下一轮 decide 使用。
-      state = { ...state, messages: [...state.messages, { role: "tool", result }] };
+      // 整批确认后按请求顺序追加。取消不补写已完成的一半结果。
+      state = {
+        ...state,
+        messages: [...state.messages, ...results.map((result) => ({ role: "tool" as const, result }))],
+      };
     }
 
     control.check();
