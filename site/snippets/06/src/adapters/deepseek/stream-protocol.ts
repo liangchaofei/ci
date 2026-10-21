@@ -49,6 +49,7 @@ function appendToolDelta(draft: StreamDraft, value: unknown): string {
   if (delta.type != null && delta.type !== "function") throw new Error("Unsupported tool type");
 
   // 首片创建调用草稿，后续片段复用它，保留之前的身份与参数。
+  // #region explain-draft
   const fn = delta.function == null ? {} : record(delta.function, "function delta");
   const call = draft.call ?? { id: "", name: "", arguments: "" };
   call.id = metadata(call.id, delta.id, "call id");
@@ -61,6 +62,7 @@ function appendToolDelta(draft: StreamDraft, value: unknown): string {
   // 只追加到本次决策的草稿，不写 State，也不执行工具。
   call.arguments += part;
   draft.call = call;
+  // #endregion explain-draft
 
   // 交回本次新增文本，供上层显示进度，而不是交回全部参数。
   return part;
@@ -149,11 +151,13 @@ export async function collectDeepSeekAction(
     signal.throwIfAborted();
 
     // 结束标志不是 JSON；只有走到这里才尝试交回完整动作。
+    // #region explain-done
     if (data === "[DONE]") {
       const action = completeDraft(draft);
       signal.throwIfAborted();
       return action;
     }
+    // #endregion explain-done
 
     // 普通事件只更新草稿、通知显示，不让片段提前成为 Action。
     let payload: unknown;

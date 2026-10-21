@@ -96,10 +96,12 @@ export async function runAgentLoop(
       let result: ToolResult;
 
       try {
+        // #region explain-wait-tool
         result = structuredClone(await control.wait(
           (signal) => dependencies.executeTool(structuredClone(action.call), signal),
         ));
         control.check();
+        // #endregion explain-wait-tool
       } catch (error) {
         if (control.outcome()) throw error;
 
@@ -122,9 +124,11 @@ export async function runAgentLoop(
     control.check();
     return { state, outcome: { status: "budget-exhausted" } };
   } catch (error) {
+    // #region explain-outer-stop
     const stopped = control.outcome();
     if (stopped) return { state, outcome: stopped };
     throw error;
+    // #endregion explain-outer-stop
   } finally {
     // 成功、失败、取消和超时都必须释放本次控制资源。
     control.dispose();

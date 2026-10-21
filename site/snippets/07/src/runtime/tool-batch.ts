@@ -69,10 +69,12 @@ export function createToolBatchRunner(
         signal.throwIfAborted();
 
         // 领取编号的过程不含 await；同一运行中的两个 worker 不会领取同一项。
+        // #region explain-claim
         const index = nextIndex;
         nextIndex += 1;
         if (index >= requests.length) return;
         const call = requests[index];
+        // #endregion explain-claim
 
         let result: ToolResult;
         try {
@@ -87,6 +89,7 @@ export function createToolBatchRunner(
           };
         }
 
+        // #region explain-place
         signal.throwIfAborted();
         if (typeof result !== "object" || result === null || result.callId !== call.id) {
           // 关联已不可信：不把它伪装成本次调用的普通失败观察。
@@ -96,14 +99,17 @@ export function createToolBatchRunner(
 
         // 写回领取时的下标，而不是完成时 push，才能保持请求顺序。
         results[index] = result;
+        // #endregion explain-place
       }
     }
 
     // 等待的是有限个 worker；每个 worker 完成一项后才领取下一项。
+    // #region explain-workers
     await Promise.all(Array.from({ length: workerCount }, () => worker()));
     signal.throwIfAborted();
     if (fatal) throw fatal;
     return results;
+    // #endregion explain-workers
   };
 }
 // #endregion runner

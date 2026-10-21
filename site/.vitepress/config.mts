@@ -31,6 +31,7 @@ export default defineConfig({
           { text: "06 流式响应与完整动作", link: "/guide/06-streaming-response" },
           { text: "07 工具批次与有界并行", link: "/guide/07-tool-batches" },
           { text: "08 模型输入选择与预算", link: "/guide/08-context-window" },
+          { text: "09 观察运行与管理实例", link: "/guide/09-run-events" },
         ],
       },
     ],

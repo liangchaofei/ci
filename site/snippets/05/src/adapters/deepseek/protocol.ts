@@ -28,11 +28,13 @@ export function buildDeepSeekMessages(
       messages.push({ role: "user", content: message.content });
     } else if (message.role === "tool") {
       // 回传原调用身份，模型才能把这份结果与此前请求关联起来。
+      // #region explain-result
       messages.push({
         role: "tool",
         tool_call_id: message.result.callId,
         content: JSON.stringify(message.result),
       });
+      // #endregion explain-result
     } else if (message.action.kind === "tool") {
       // 还原历史工具请求；参数对象在接口中需要序列化为字符串。
       const { call, content } = message.action;
@@ -114,6 +116,7 @@ export function decodeDeepSeekAction(payload: unknown): Action {
     const name = nonEmptyText(fn.name, "tool name");
 
     // 外层 JSON 已解析，但 function.arguments 在协议中仍是字符串。
+    // #region explain-arguments
     const rawArguments = nonEmptyText(fn.arguments, "arguments JSON");
 
     let args: unknown;
@@ -122,6 +125,7 @@ export function decodeDeepSeekAction(payload: unknown): Action {
     } catch {
       throw new Error("Invalid tool arguments JSON");
     }
+    // #endregion explain-arguments
 
     return {
       kind: "tool",

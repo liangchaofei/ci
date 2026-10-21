@@ -137,9 +137,21 @@ resolve 和 reject 是第二份 Promise 创建时提供的函数。这里用 res
 4. waitForResult 返回刚创建的等待 Promise。调用方可以 await 它；此时暂停的是调用方后续代码，读取仍在进行。
 5. 读取成功后，成功回调的 value 接到那份 ToolResult。cleanup 移除本次监听，check 再确认可以继续，resolve(value) 将结果交给等待方。
 
+**讲解摘录 · 读取成功回调里的检查与返回（无需写入文件）**
+
+<<< ../snippets/04/src/runtime/run-control.ts#explain-success
+
 因此 value 是工具交回的数据，resolve 是让调用方取得数据的函数，二者不是同一个对象。若本次等待的是决策，流程相同，value 换成一个 Action。then 的回调会在相应 Promise 的结果确定后异步运行。[MDN：then 的处理函数](https://developer.mozilla.org/zh-CN/docs/Web/JavaScript/Reference/Global_Objects/Promise/then)
 
 #### 读取尚未完成时取消，会走哪里
+
+::: info 以下摘录仅供对照
+解释中的代码片段已包含在上方对应的完整实现中，**无需再次写入、追加或替换文件**。继续实现时，以标明“新增、追加、替换”的步骤为准。
+:::
+
+**讲解摘录 · 等待函数内部，取消怎样结束等待（无需写入文件）**
+
+<<< ../snippets/04/src/runtime/run-control.ts#explain-abort
 
 此时读取的 Promise 尚未结束，但 signal 收到 abort。onAbort 被调用：先移除监听，再 reject(signal.reason)。调用方正在 await 的等待 Promise 因此失败，会进入自己的 catch；它不需要等读取交出源码。
 
@@ -191,6 +203,10 @@ resolve 和 reject 是第二份 Promise 创建时提供的函数。这里用 res
 
 假设调用方创建了自己的 controller，并将它的 signal 放进 options。这里将它命名为 externalSignal，以区别于本函数新建的内部信号。
 
+**讲解摘录 · 把第一项停止原因保存下来（无需写入文件）**
+
+<<< ../snippets/04/src/runtime/run-control.ts#explain-stop
+
 调用方 abort → 外部 signal 通知 cancel → cancel 调用 stop，传入 `{ status: "cancelled" }` → stop 保存 stopped，并触发内部 controller.abort。上一步的等待函数收到的是内部信号，于是结束等待。
 
 如果外部 signal 在创建前就已取消，代码直接调用 cancel，不再等待另一次通知。若 stopped 已有值，stop 立即返回；后来的事件不能覆盖已经记录的原因。
@@ -208,6 +224,10 @@ outcome 返回停止原因；check 遇到这个原因就抛错，让当前代码
 stop(outcome) 的参数名也叫 outcome，但它接收的是一个停止结果对象；外面的 outcome() 则是读取状态的函数。判断含义时看它所在的位置与是否被调用，不能只看名字。
 
 #### 时间精度、配置与清理的边界
+
+**讲解摘录 · 读取原因时也核对实际截止时间（无需写入文件）**
+
+<<< ../snippets/04/src/runtime/run-control.ts#explain-outcome
 
 计时器只能在运行环境有机会处理回调时触发，不能抢占同步代码。因此 outcome 还会比较当前计时值和 deadline：即使某段同步计算拖过截止时间，到了下一次检查也能发现。若代码一直同步死循环，本模块仍无法立即中断它，也不保证精确在第 30 毫秒结束。[Node.js：计时器调度](https://nodejs.org/api/timers.html#settimeoutcallback-delay-args)
 
@@ -378,6 +398,10 @@ control 不替循环更新 state；wait 成功交回一个值，也不表示那�
 
 取消前，循环已记录 tool 动作，因此 state 中有 user、assistant。执行依赖尚未交回结果，当前停在第二处 control.wait。
 
+**讲解摘录 · 工具结果回来后，先检查是否停止（无需写入文件）**
+
+<<< ../snippets/04/src/runtime/agent-loop.ts#explain-wait-tool
+
 内部 abort 使 wait 失败，进入紧邻工具调用的 catch。这里先看 control.outcome：若本次确已取消，就继续抛出，不创建 tool-error 观察。外层 catch 再读取停止结果，返回 `{ state, outcome: { status: "cancelled" } }`，finally 同样清理。
 
 这个路径没有执行后面的 callId 核对与 tool 消息追加。即使底层工具稍后返回，也不会让这次已失败的等待重新交付结果；工具也没有拿到内部 state 的可变引用。**等待提前结束与循环集中写回这两项边界共同阻止迟到结果进入记录。**
@@ -385,6 +409,10 @@ control 不替循环更新 state；wait 成功交回一个值，也不表示那�
 #### 普通异常与取消为什么不能混在一起
 
 若工具只是报告一次普通异常，而 control 没有停止，内部 catch 保持旧行为：构造带调用 ID 的 error 观察，让后续决策处理。如果删除 `if (control.outcome()) throw error;`，取消也会走这条普通错误路径，错误地追加 tool 消息。
+
+**讲解摘录 · 最外层 catch 从控制器取得停止结果（无需写入文件）**
+
+<<< ../snippets/04/src/runtime/agent-loop.ts#explain-outer-stop
 
 反过来，也不能把每个异常都当作取消。外层 catch 只在控制器确有停止原因时返回它，没有原因就继续抛出。决定分类的是 control 的记录，不是 Error.name 或 message。
 

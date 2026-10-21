@@ -33,8 +33,10 @@ export function createContextWindow(options: ContextWindowOptions): (messages: r
     const first = copy[0];
     if (!first || first.role !== "user") throw new Error("Context must start with the original user request");
 
+    // #region explain-groups
     const groups = groupExchanges(copy.slice(1));
     const maxDrop = Math.max(0, groups.length - keepRecent);
+    // #endregion explain-groups
 
     // 先试全量；每次只多省略最早的一整组，优先保留更多近期原文。
     for (let drop = 0; drop <= maxDrop; drop += 1) {
@@ -46,6 +48,7 @@ export function createContextWindow(options: ContextWindowOptions): (messages: r
         if (text.trim()) summary = text;
       }
 
+      // #region explain-context
       const context: DecisionContext = {
         messages: [first, ...groups.slice(drop).flat()],
         ...(summary ? { summary } : {}),
@@ -53,6 +56,7 @@ export function createContextWindow(options: ContextWindowOptions): (messages: r
 
       // 摘要也占输入空间，不能先按消息算好预算，再无限追加摘要。
       if (measureContextBytes(context) <= maxBytes) return context;
+      // #endregion explain-context
     }
 
     throw new ContextWindowError("Original request, recent exchanges and summary exceed maxBytes");

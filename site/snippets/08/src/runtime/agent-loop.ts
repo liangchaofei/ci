@@ -73,14 +73,18 @@ export async function runAgentLoop(
       let context: DecisionContext;
       try {
         // 先准备本轮输入；装不下时不启动模型，不计一次决策。
+        // #region explain-input
         context = buildContext(state);
         control.check();
+        // #endregion explain-input
       } catch (error) {
+        // #region explain-input-error
         if (control.outcome()) throw error;
         if (error instanceof ContextWindowError) {
           return { state, outcome: { status: "context-limit", reason: error.message } };
         }
         return { state, outcome: failure(errorMessage(error), "decision") };
+        // #endregion explain-input-error
       }
 
       let action: Action;

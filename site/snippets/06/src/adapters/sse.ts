@@ -25,10 +25,12 @@ async function* readLines(
   try {
     while (true) {
       signal.throwIfAborted();
+      // #region explain-decode
       const { done, value } = await reader.read();
       signal.throwIfAborted();
 
       const text = done ? decoder.decode() : decoder.decode(value, { stream: true });
+      // #endregion explain-decode
 
       for (const character of text) {
         // CR 已结束上一行；紧随的 LF 不能再制造一个空行。
@@ -75,12 +77,14 @@ export async function* readSseData(
     signal.throwIfAborted();
 
     // 空行才结束一条事件，先交出当前 data，再开始收集下一条。
+    // #region explain-event
     if (line === "") {
       if (data.length > 0) yield data.join("\n");
       data = [];
       size = 0;
       continue;
     }
+    // #endregion explain-event
 
     // 注释行不携带模型数据，其余行按第一个冒号拆分。
     if (line.startsWith(":")) continue;

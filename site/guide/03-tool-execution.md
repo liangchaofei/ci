@@ -289,6 +289,14 @@ byName 没有被直接交给外部。调用者可以查工具或取得名称列�
 3. invoke 完成检查和读取，交回 `{ status: "ok", value: 源码 }`，由 output 接住。
 4. `{ ...output, callId: call.id }` 创建带原请求身份的新结果，返回给调用方。
 
+::: info 以下摘录仅供对照
+解释中的代码片段已包含在上方对应的完整实现中，**无需再次写入、追加或替换文件**。继续实现时，以标明“新增、追加、替换”的步骤为准。
+:::
+
+**讲解摘录 · 把工具输出带上本次请求身份（无需写入文件）**
+
+<<< ../snippets/03/src/runtime/tool-executor.ts#explain-output
+
 执行器内的 output 是 ToolOutput，循环内接住返回值的 result 才是 ToolResult。return 只把对象交回去，**此函数没有 State，也不会自己追加消息**。
 
 失败有三个位置。查不到名称时，在调用 invoke 前返回 unknown-tool。检查返回拒绝时，invoke 正常交回 invalid-arguments，执行器为它补上 callId。检查函数或执行体抛出异常时，才进入 catch，返回 tool-error。catch 用 Error.message 或 String(error) 取得说明，不把任意抛出值都假定为 Error。

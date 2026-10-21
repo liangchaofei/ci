@@ -20,12 +20,15 @@ export function groupExchanges(messages: readonly Message[]): Message[][] {
       continue;
     }
 
+    // #region explain-pending
     validateToolBatch(calls, usedIds);
     const pending = new Set(calls.map((call) => call.id));
     for (const id of pending) usedIds.add(id);
     const group: Message[] = [message];
+    // #endregion explain-pending
 
     // 请求后必须有每一项的对应结果；不完整的批次不能作为合法输入裁剪。
+    // #region explain-group-results
     for (let count = 0; count < calls.length; count += 1) {
       index += 1;
       const observation = messages[index];
@@ -34,6 +37,7 @@ export function groupExchanges(messages: readonly Message[]): Message[][] {
       }
       group.push(observation);
     }
+    // #endregion explain-group-results
 
     groups.push(group);
   }

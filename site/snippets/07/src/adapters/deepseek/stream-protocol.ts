@@ -117,10 +117,12 @@ function appendChunk(draft: StreamDraft, payload: unknown, onProgress?: Progress
 /** 先按调用位置还原顺序，再复用最终动作检查；索引缺口不能悄悄丢弃。 */
 function completeDraft(draft: StreamDraft): Action {
   if (draft.finishReason === undefined) throw new Error("Stream ended without finish_reason");
+  // #region explain-sort
   const entries = [...draft.calls.entries()].sort(([left], [right]) => left - right);
   if (entries.some(([index], position) => index !== position)) {
     throw new Error("Tool indexes must be contiguous from 0");
   }
+  // #endregion explain-sort
 
   return decodeDeepSeekAction({
     choices: [{

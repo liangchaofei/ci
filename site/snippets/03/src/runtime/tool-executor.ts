@@ -18,10 +18,12 @@ export function createToolExecutor(
     }
 
     try {
+      // #region explain-output
       const output = await tool.invoke(call.arguments);
 
       // 工具只处理参数与值；调用身份统一取自原请求。
       return { ...output, callId: call.id };
+      // #endregion explain-output
     } catch (error) {
       return {
         callId: call.id,

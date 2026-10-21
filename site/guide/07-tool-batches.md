@@ -275,6 +275,10 @@ worker 是函数内部负责“取一项、等待执行、存好结果”的异�
     → 返回 [源码结果, 测试结果]
 ```
 
+**讲解摘录 · 核对身份，再放回原下标（无需写入文件）**
+
+<<< ../snippets/07/src/runtime/tool-batch.ts#explain-place
+
 关键就是 `results[index] = result`：保存到领取请求时的位置。若改用 push，测试先完成就会排在源码前面，“完成先后”便被误当成“请求顺序”。callId 检查则进一步确认，返回值确实属于这个位置上的请求。
 
 这个 results 还是函数内部数组。**写入 results[1] 没有更新 State。** 第一阶段入口只打印它；第二阶段才由 agent-loop.ts 接住整个数组并写入历史。
@@ -283,7 +287,19 @@ worker 是函数内部负责“取一项、等待执行、存好结果”的异�
 
 设有 6 项请求，上限仍为 2。前两个 worker 各领取一项；某个 worker 完成后，再回来领取下一项。因此可以一直处理整批，但最多只有两项正在执行或等待。
 
+::: info 以下摘录仅供对照
+解释中的代码片段已包含在上方对应的完整实现中，**无需再次写入、追加或替换文件**。继续实现时，以标明“新增、追加、替换”的步骤为准。
+:::
+
+**讲解摘录 · 领取下一项请求时没有 await（无需写入文件）**
+
+<<< ../snippets/07/src/runtime/tool-batch.ts#explain-claim
+
 nextIndex 表示下一项的位置。读取它并加一之间没有 await，所以当前这段 JavaScript 会先完成领取，再在等待工具时让出执行机会。另一个 worker 不会领取同一个下标。
+
+**讲解摘录 · 等待有限数量的执行者，不是同时启动全部请求（无需写入文件）**
+
+<<< ../snippets/07/src/runtime/tool-batch.ts#explain-workers
 
 Promise.all 等待的是这几个 worker 全部结束。若一开始就把 6 次 executeTool 全部调用，再把 Promise 交给 Promise.all，6 次操作已经启动，Promise.all 本身并不会替我们限制数量。[MDN：Promise.all 的等待与拒绝行为](https://developer.mozilla.org/zh-CN/docs/Web/JavaScript/Reference/Global_Objects/Promise/all)
 
@@ -415,6 +431,10 @@ RunAgentOptions 将原时间与取消配置同工具调度配置组合，旧调�
 5. control.check 确认仍可继续，然后下面的 state 赋值把两份结果追加为 tool 消息。
 6. 本轮末尾没有 return，于是回到 while 条件。额度仍够，就从新 state 构造 Context，再调用 decide。
 
+**讲解摘录 · 循环接住整批结果，并确认仍可继续（无需写入文件）**
+
+<<< ../snippets/07/src/runtime/agent-loop.ts#explain-batch-wait
+
 两份结果进入下一轮，靠的是第 5、6 步接在一起：**先保存，再重新构造输入，再次调用。** 不是 runBatch 返回后模型自动收到了数据，也不是执行器自己调用 decide。
 
 #### 写回前后，消息到底变了什么
@@ -426,6 +446,10 @@ RunAgentOptions 将原时间与取消配置同工具调度配置组合，旧调�
 | 测试返回，源码还在等 | 1 | 仍为 user → assistant |
 | results 已接到整批结果，检查可继续并写回 | 1 | user → assistant → tool → tool |
 | 下一次 decide 返回答案，记录 finish 动作 | 2 | user → assistant → tool → tool → assistant |
+
+**讲解摘录 · 循环一次追加本批全部结果（无需写入文件）**
+
+<<< ../snippets/07/src/runtime/agent-loop.ts#explain-writeback
 
 拿到数组之后，`results.map(...)` 为每份结果创建一条 tool 消息。新的 messages 把旧消息和这两条消息放在一起，再赋给 state。这条赋值才是会话真正发生变化的位置；`"tool" as const` 只是让类型检查保留精确的角色名称。
 
@@ -643,6 +667,10 @@ appendChunk 仍负责处理一条完整事件。它检查响应结构后，把�
 接着用下面完整函数替换 completeDraft：
 
 <<< ../snippets/07/src/adapters/deepseek/stream-protocol.ts#complete
+
+**讲解摘录 · 完成时恢复响应中的调用顺序（无需写入文件）**
+
+<<< ../snippets/07/src/adapters/deepseek/stream-protocol.ts#explain-sort
 
 如果测试片段先来，Map 里可能先插入 1，再插入 0。completeDraft 取出这两项，按 index 排成 0、1，恢复本次回复中的调用顺序；同时要求没有缺项。只收到了 1 却没有 0，就抛错，不能把测试悄悄当成第一项。
 
