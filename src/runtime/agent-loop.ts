@@ -3,9 +3,12 @@ import type { ToolBatchOptions } from "./tool-batch.ts";
 import { toolCallsOf, previousToolCallIds } from "./action-tools.ts";
 import { createRunControl } from "./run-control.ts";
 import type { RunOptions } from "./run-control.ts";
-import { buildDecisionContext } from "./context.ts";
+import { createContextBuilder } from "./context.ts";
+import { ContextWindowError } from "./context-window.ts";
+import type { ContextWindowOptions } from "./context-window.ts";
 import type {
   Action,
+  DecisionContext,
   Dependencies,
   Outcome,
   RunResult,
@@ -14,7 +17,10 @@ import type {
 } from "./types.ts";
 
 /** 执行调度配置独立于 RunControl，旧调用方可继续不提供。 */
-export type RunAgentOptions = RunOptions & { toolExecution?: ToolBatchOptions };
+export type RunAgentOptions = RunOptions & {
+  toolExecution?: ToolBatchOptions;
+  context?: ContextWindowOptions;
+};
 
 /** 保护循环拥有的消息；当前 State 只包含可结构化复制的数据。 */
 function snapshot(state: State): Readonly<State> {
@@ -45,6 +51,7 @@ export async function runAgentLoop(
   }
 
   const runBatch = createToolBatchRunner(dependencies.executeTool, options.toolExecution);
+  const buildContext = createContextBuilder(options.context);
   const control = createRunControl(options);
 
   // State 只属于这次调用；再次运行会得到新的消息与计数。
@@ -58,11 +65,21 @@ export async function runAgentLoop(
     while (state.decisions < maxDecisions) {
       control.check();
 
-      let action: Action;
-
+      let context: DecisionContext;
       try {
-        // 每轮都重新构造，才能包含上一轮刚写回的工具结果。
-        const context = buildDecisionContext(state);
+        // 先准备本轮输入；装不下时不启动模型，不计一次决策。
+        context = buildContext(state);
+        control.check();
+      } catch (error) {
+        if (control.outcome()) throw error;
+        if (error instanceof ContextWindowError) {
+          return { state, outcome: { status: "context-limit", reason: error.message } };
+        }
+        return { state, outcome: failure(errorMessage(error), "decision") };
+      }
+
+      let action: Action;
+      try {
         action = structuredClone(await control.wait((signal) => dependencies.decide(context, signal)));
         control.check();
 

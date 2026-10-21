@@ -17,15 +17,16 @@ const dependencies: Dependencies = {
 };
 
 const maxDecisions = 3;
+
 const result = await runAgentLoop("Diagnose why sum([]) fails", dependencies, maxDecisions);
 
-console.log(`outcome: ${result.outcome.status}`);
-console.log(`decisions: ${result.state.decisions}`);
-console.log(`messages: ${result.state.messages.map((message) => message.role).join(" -> ")}`);
+console.log(`运行结果（outcome）: ${result.outcome.status}`);
+console.log(`决策次数（decisions）: ${result.state.decisions}`);
+console.log(`消息顺序（messages）: ${result.state.messages.map((message) => message.role).join(" -> ")}`);
 
 if (result.outcome.status === "completed") {
-  console.log(`answer: ${result.outcome.answer}`);
+  console.log(`最终答案（answer）: ${result.outcome.answer}`);
 } else if (result.outcome.status === "failed") {
-  console.log(`failure: ${result.outcome.source}: ${result.outcome.reason}`);
+  console.log(`失败信息（failure）: ${result.outcome.source}: ${result.outcome.reason}`);
 }
 // #endregion run

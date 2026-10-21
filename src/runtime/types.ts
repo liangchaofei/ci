@@ -46,6 +46,7 @@ export type Outcome =
       source: "decision" | "execution" | "validation";
     }
   | { status: "budget-exhausted" }
+  | { status: "context-limit"; reason: string }
   | StopOutcome;
 
 export type RunResult = { state: State; outcome: Outcome };
@@ -61,4 +62,5 @@ export type Dependencies = {
 /** 本轮决策可见的输入；控制字段仍由 Runtime 持有。 */
 export type DecisionContext = {
   readonly messages: readonly Message[];
+  readonly summary?: string;
 };

@@ -5,6 +5,7 @@ import { createDeepSeekDecider } from "../adapters/deepseek/decider.ts";
 import { readSourceTool } from "./read-source-tool.ts";
 import { readTestsTool } from "./read-tests-tool.ts";
 import { batchPrompt, hasBatchEvidence } from "./batch-scenario.ts";
+import { summarizeBuildLog } from "./context-scenario.ts";
 
 const apiKey = process.env.DEEPSEEK_API_KEY?.trim();
 if (!apiKey) throw new Error("DEEPSEEK_API_KEY is required");
@@ -34,6 +35,7 @@ const result = await runAgentLoop("请结合源码与已有测试，诊断 sum([
     concurrency: 2,
     parallelSafeTools: ["read_source", "read_tests"],
   },
+  context: { maxBytes: 18000, keepRecentExchanges: 1, summarize: summarizeBuildLog },
 });
 
 console.log(`\n运行结果（outcome）: ${result.outcome.status}`);
@@ -41,3 +43,4 @@ console.log(`决策次数（decisions）: ${result.state.decisions}`);
 console.log(`消息顺序（messages）: ${result.state.messages.map((m) => m.role).join(" -> ")}`);
 if (result.outcome.status === "completed") console.log(`最终答案（answer）: ${result.outcome.answer}`);
 if (result.outcome.status === "failed") console.log(`失败信息（failure）: ${result.outcome.reason}`);
+if (result.outcome.status === "context-limit") console.log(`输入限制原因（reason）: ${result.outcome.reason}`);
