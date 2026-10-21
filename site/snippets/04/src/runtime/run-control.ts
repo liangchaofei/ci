@@ -22,6 +22,7 @@ function waitForResult<T>(
   check();
 
   return new Promise<T>((resolve, reject) => {
+    // #region explain-abort
     const cleanup = () => signal.removeEventListener("abort", onAbort);
     const onAbort = () => {
       cleanup();
@@ -29,10 +30,12 @@ function waitForResult<T>(
     };
 
     signal.addEventListener("abort", onAbort, { once: true });
+    // #endregion explain-abort
 
     try {
       // 先完成检查和监听，再启动依赖，避免已取消时仍先执行。
       Promise.resolve(start(signal)).then(
+        // #region explain-success
         (value) => {
           cleanup();
 
@@ -44,6 +47,7 @@ function waitForResult<T>(
             reject(error);
           }
         },
+        // #endregion explain-success
         (error) => {
           cleanup();
           reject(error);
@@ -72,12 +76,15 @@ export function createRunControl(options: RunOptions = {}): RunControl {
   let timer: ReturnType<typeof setTimeout> | undefined;
 
   // 先保存停止原因，再通知等待者；后续停止事件不能覆盖它。
+  // #region explain-stop
   function stop(outcome: StopOutcome): void {
     if (stopped) return;
     stopped = outcome;
     controller.abort(new Error("Run stopped"));
   }
+  // #endregion explain-stop
 
+  // #region explain-outcome
   function outcome(): StopOutcome | undefined {
     // 计时器无法抢占同步代码；到达下一边界时再次核对实际耗时。
     if (!stopped && deadline !== undefined && performance.now() >= deadline) {
@@ -86,6 +93,7 @@ export function createRunControl(options: RunOptions = {}): RunControl {
 
     return stopped ? { ...stopped } : undefined;
   }
+  // #endregion explain-outcome
 
   function check(): void {
     if (outcome()) throw controller.signal.reason;

@@ -621,13 +621,33 @@ export async function runAgentLoop(
 
 **起点：只有目标，还没有执行。** 入口将目标、三个依赖函数和上限 3 传进 runAgentLoop。函数创建自己的 state：一条 user 消息，decisions 为 0。这个状态只属于本次调用，下次运行会重新创建。
 
+::: info 以下摘录仅供对照
+解释中的代码片段已包含在上方对应的完整实现中，**无需再次写入、追加或替换文件**。继续实现时，以标明“新增、追加、替换”的步骤为准。
+:::
+
+**讲解摘录 · 取得动作，并记入历史（无需写入文件）**
+
+<<< ../snippets/01/src/runtime/agent-loop.ts#decide
+
 **第一次决策：取得读取请求。** `while` 检查 0 < 3，允许开始。`dependencies.decide(snapshot(state))` 把当前信息交给脚本；await 等到返回动作，外层 structuredClone 再复制动作并保存到 action。本例得到 tool，循环先记录 assistant 消息，再将计数加到 1。现在历史是 user → assistant，尚无源码。
 
 先记录再执行，是为了无论接下来成功还是失败，都能回查本次请求。这里的 state 赋值仍是阶段 3 的做法，只是由循环统一负责了。
 
+**讲解摘录 · 执行请求并核对返回结果（无需写入文件）**
+
+<<< ../snippets/01/src/runtime/agent-loop.ts#execute
+
 **执行与写回：请求变成可供下一轮使用的结果。** action 既不是 fail，也不是 finish，于是进入工具路径。循环将 action.call 交给 executeTool，等到属于 read-1 的成功结果。确认 result.callId 与请求 id 相同后，追加 tool 消息，历史变成 user → assistant → tool。工具执行没有产生新决策，计数仍为 1。
 
+**讲解摘录 · 将已核对的结果追加到状态（无需写入文件）**
+
+<<< ../snippets/01/src/runtime/agent-loop.ts#writeback
+
 这里没有 return，执行到循环末尾就回到 while。再次检查 1 < 3 后，下一次 decide 收到的是已含源码的新状态。**这次结果能影响下一次决策，靠的就是写回 state 后重新调用 decide。**
+
+**讲解摘录 · 完成请求要经过证据检查（无需写入文件）**
+
+<<< ../snippets/01/src/runtime/agent-loop.ts#finish
 
 **第二次决策：提出诊断并核对完成。** 脚本返回 finish，循环先记录这个动作，计数变为 2，历史已有四条消息。接着调用 validateFinish，将状态副本与 action.answer 交给场景规则。规则找到读取证据并返回 true，循环便返回 state 与 completed，不再进入第三次决策。
 

@@ -7,6 +7,7 @@ export async function requestDeepSeek(
   if (!apiKey.trim()) throw new Error("DEEPSEEK_API_KEY is required");
 
   // 配置检查通过才发请求，取消信号直接传到网络层。
+  // #region explain-http
   const response = await fetch("https://api.deepseek.com/chat/completions", {
     method: "POST",
     headers: {
@@ -16,6 +17,7 @@ export async function requestDeepSeek(
     body: JSON.stringify(body),
     signal,
   });
+  // #endregion explain-http
 
   if (!response.ok) {
     await response.body?.cancel();

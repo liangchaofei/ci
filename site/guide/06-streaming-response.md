@@ -134,6 +134,14 @@ body 是一个 ReadableStream，也就是可以陆续读取字节的对象；真
 
 #### 中文字符被切开时，怎样继续
 
+::: info 以下摘录仅供对照
+解释中的代码片段已包含在上方对应的完整实现中，**无需再次写入、追加或替换文件**。继续实现时，以标明“新增、追加、替换”的步骤为准。
+:::
+
+**讲解摘录 · 沿用同一个解码器接续字节（无需写入文件）**
+
+<<< ../snippets/06/src/adapters/sse.ts#explain-decode
+
 假设“你”的几个 UTF-8 字节落在两个网络块里。第一次 reader.read 只取得前半，不能把它当成完整字符。`decoder.decode(value, { stream: true })` 会保留未完成字节，下一次仍交给同一个 decoder，才拼出“你”。done 为 true 时再调用没有参数的 decode，完成最后一次解码。
 
 因此 decoder 必须在 while 外创建。如果每次读到块就新建 decoder，跨块字符就无法继续。本例的 fatal:true 会拒绝无效 UTF-8，不用替代字符悄悄接受损坏输入。[MDN：decode 的 stream 选项](https://developer.mozilla.org/en-US/docs/Web/API/TextDecoder/decode)
@@ -169,6 +177,10 @@ maxBufferedCharacters 限制的是字符串暂存长度，防止一直没有换�
 第 2 行：data: 好
 第 3 行：空行
 ```
+
+**讲解摘录 · 空行才交出一份 SSE data（无需写入文件）**
+
+<<< ../snippets/06/src/adapters/sse.ts#explain-event
 
 第一行取出 field 为 data，value 为“你”，放入 data 数组。第二行同样追加“好”。第三行的 line 是空字符串，才执行 `yield data.join("\n")`，交给外面一条 `"你\n好"`，随后清空 data 与 size。
 
@@ -267,6 +279,10 @@ metadata 用来接收调用 ID 和名称：没提供就沿用以前的值，首�
 [{"index":0,"id":"call_stream","type":"function","function":{"name":"read_source","arguments":"{\"path\":"}}]
 ```
 
+**讲解摘录 · 工具参数只追加到本次草稿（无需写入文件）**
+
+<<< ../snippets/06/src/adapters/deepseek/stream-protocol.ts#explain-draft
+
 逐步执行：
 
 1. delta 取出数组第一项，fn 取其中的 function 对象。
@@ -344,6 +360,10 @@ finishReason 已经出现后，不再接受新模型数据；接下来应是本�
 2. appendChunk 更新本次草稿；如果有增量，显示回调可能在这里运行。
 3. 再检查一次 signal，避免回调刚好发出取消通知后继续处理。
 4. 收到 `[DONE]` 时不做 JSON.parse，而是调用 completeDraft，确认完整 Action，再检查仍可继续并 return。
+
+**讲解摘录 · 收到结束标志后才交回完整动作（无需写入文件）**
+
+<<< ../snippets/06/src/adapters/deepseek/stream-protocol.ts#explain-done
 
 因此 progress 会在 Promise 最终返回前出现。循环仍等待这个 Promise，直到有完整 Action 或发生失败，不需要为了流式显示重写 runAgentLoop。
 

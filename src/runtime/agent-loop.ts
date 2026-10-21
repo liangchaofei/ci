@@ -1,3 +1,6 @@
+import { createRunReporter } from "./events.ts";
+import type { EventListener } from "./events.ts";
+import { measureContextBytes } from "./context-window.ts";
 import { createToolBatchRunner, validateToolBatch } from "./tool-batch.ts";
 import type { ToolBatchOptions } from "./tool-batch.ts";
 import { toolCallsOf, previousToolCallIds } from "./action-tools.ts";
@@ -20,6 +23,7 @@ import type {
 export type RunAgentOptions = RunOptions & {
   toolExecution?: ToolBatchOptions;
   context?: ContextWindowOptions;
+  onEvent?: EventListener;
 };
 
 /** 保护循环拥有的消息；当前 State 只包含可结构化复制的数据。 */
@@ -61,7 +65,17 @@ export async function runAgentLoop(
     decisions: 0,
   };
 
+  const report = createRunReporter(options.onEvent);
+
+  // 所有正常协议出口共用这里，保证最后一份报告与返回结果一致。
+  function finish(outcome: Outcome): RunResult {
+    report({ type: "run-ended", outcome, decisions: state.decisions, messages: state.messages.length });
+    return { state, outcome };
+  }
+
   try {
+    report({ type: "run-started" });
+
     while (state.decisions < maxDecisions) {
       control.check();
 
@@ -73,14 +87,25 @@ export async function runAgentLoop(
       } catch (error) {
         if (control.outcome()) throw error;
         if (error instanceof ContextWindowError) {
-          return { state, outcome: { status: "context-limit", reason: error.message } };
+          return finish({ status: "context-limit", reason: error.message });
         }
-        return { state, outcome: failure(errorMessage(error), "decision") };
+        return finish(failure(errorMessage(error), "decision"));
       }
 
       let action: Action;
       try {
-        action = structuredClone(await control.wait((signal) => dependencies.decide(context, signal)));
+        action = structuredClone(await control.wait((signal) => {
+          report({
+            type: "decision-started",
+            decision: state.decisions + 1,
+            inputMessages: context.messages.length,
+            inputBytes: measureContextBytes(context),
+            hasSummary: context.summary !== undefined,
+          });
+          // 观察者可以请求取消；通知后再检查，避免仍启动依赖。
+          control.check();
+          return dependencies.decide(context, signal);
+        }));
         control.check();
 
         // 脚本与真实模型都必须经过运行边界，不能复用历史调用身份。
@@ -90,7 +115,7 @@ export async function runAgentLoop(
         }
       } catch (error) {
         if (control.outcome()) throw error;
-        return { state, outcome: failure(errorMessage(error), "decision") };
+        return finish(failure(errorMessage(error), "decision"));
       }
 
       // 先记下模型提出了什么，再判断能否执行或完成。
@@ -99,8 +124,16 @@ export async function runAgentLoop(
         decisions: state.decisions + 1,
         messages: [...state.messages, { role: "assistant", action }],
       };
+      report({
+        type: "decision-recorded",
+        decision: state.decisions,
+        kind: action.kind,
+        callIds: toolCallsOf(action).map((call) => call.id),
+      });
+      control.check();
+
       if (action.kind === "fail") {
-        return { state, outcome: failure(action.reason, "decision") };
+        return finish(failure(action.reason, "decision"));
       }
 
       if (action.kind === "finish") {
@@ -110,13 +143,13 @@ export async function runAgentLoop(
           control.check();
 
           if (accepted) {
-            return { state, outcome: { status: "completed", answer: action.answer } };
+            return finish({ status: "completed", answer: action.answer });
           }
 
-          return { state, outcome: failure("Completion lacks verified evidence", "validation") };
+          return finish(failure("Completion lacks verified evidence", "validation"));
         } catch (error) {
           if (control.outcome()) throw error;
-          return { state, outcome: failure(errorMessage(error), "validation") };
+          return finish(failure(errorMessage(error), "validation"));
         }
       }
 
@@ -125,11 +158,15 @@ export async function runAgentLoop(
 
       try {
         // 等待整批收齐；执行器只拿到请求副本，没有 State 引用。
-        results = await control.wait((signal) => runBatch(calls, signal));
+        results = await control.wait((signal) => {
+          report({ type: "batch-started", callIds: calls.map((call) => call.id) });
+          control.check();
+          return runBatch(calls, signal);
+        });
         control.check();
       } catch (error) {
         if (control.outcome()) throw error;
-        return { state, outcome: failure(errorMessage(error), "execution") };
+        return finish(failure(errorMessage(error), "execution"));
       }
 
       // 整批确认后按请求顺序追加。取消不补写已完成的一半结果。
@@ -137,13 +174,20 @@ export async function runAgentLoop(
         ...state,
         messages: [...state.messages, ...results.map((result) => ({ role: "tool" as const, result }))],
       };
+      report({
+        type: "results-recorded",
+        callIds: results.map((result) => result.callId),
+        statuses: results.map((result) => result.status),
+      });
     }
 
     control.check();
-    return { state, outcome: { status: "budget-exhausted" } };
+    return finish({ status: "budget-exhausted" });
   } catch (error) {
     const stopped = control.outcome();
-    if (stopped) return { state, outcome: stopped };
+    if (stopped) return finish(stopped);
+
+    report({ type: "run-crashed", reason: errorMessage(error) });
     throw error;
   } finally {
     // 成功、失败、取消和超时都必须释放本次控制资源。

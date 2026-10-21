@@ -226,7 +226,19 @@ groups = [
 
 外层循环从 index=0 开始，message 是日志请求，role 为 assistant。toolCallsOf 找到那份 log-1 调用，所以 calls.length 为 1，不走“没有工具请求”的分支。
 
+::: info 以下摘录仅供对照
+解释中的代码片段已包含在上方对应的完整实现中，**无需再次写入、追加或替换文件**。继续实现时，以标明“新增、追加、替换”的步骤为准。
+:::
+
+**讲解摘录 · 记录这一组还欠哪些结果（无需写入文件）**
+
+<<< ../snippets/08/src/runtime/context-exchanges.ts#explain-pending
+
 检查通过后，pending 先装入 log-1，意思是“这份请求的结果还没找到”；usedIds 也记下 log-1，防止后面另一份请求冒用它。group 先放当前 assistant 消息，现在只有日志请求。
+
+**讲解摘录 · 继续读取本请求对应的全部结果（无需写入文件）**
+
+<<< ../snippets/08/src/runtime/context-exchanges.ts#explain-group-results
 
 内层循环要读的结果数量等于 calls.length，也就是 1。index 加到 1，observation 取到日志结果。它确实是 tool，而且 callId 是正在等待的 log-1，于是从 pending 移除这个 ID，把结果加入 group。
 
@@ -358,7 +370,15 @@ drop = 1：省略日志组，保留源码与测试组
           能装下 → 返回这一份 Context
 ```
 
+**讲解摘录 · 先算最多允许省略几组（无需写入文件）**
+
+<<< ../snippets/08/src/runtime/context-window.ts#explain-groups
+
 drop 表示省略最早几组。maxDrop 则限制最多能省略多少：共有两组、必须留一组，所以最多省略一组。for 每次只多省略最早的一组，找到第一份能装下的输入就返回，不会为了更短而继续丢掉更多历史。
+
+**讲解摘录 · 把原始任务、保留组与摘要一起计量（无需写入文件）**
+
+<<< ../snippets/08/src/runtime/context-window.ts#explain-context
 
 groups.slice(drop).flat() 取得保留组并摊平成消息数组，再把 first 放在最前面。摘要从另一边 groups.slice(0, drop) 取得省略的完整组。两边不会把同一组一半当原文、一半当摘要。没有工具历史时 groups 为空，只尝试保留原始任务，不会为了省空间删除它。
 
@@ -528,6 +548,10 @@ context 是输入选择配置，toolExecution 是工具调度配置。两者都�
 
 #### 沿三轮运行看新增语句
 
+**讲解摘录 · 每轮都从最新 State 准备输入（无需写入文件）**
+
+<<< ../snippets/08/src/runtime/agent-loop.ts#explain-input
+
 函数开始时新增 buildContext，保存本次运行的输入配置。每轮 while 先调用 buildContext(state)，由 context 接住本轮输入，然后才把它传入 decide。
 
 | 时刻 | State 消息数 | 本轮 Context | 下一步 |
@@ -540,6 +564,10 @@ context 是输入选择配置，toolExecution 是工具调度配置。两者都�
 后面的工具调用、整批写回和次数更新继续使用第 7 篇代码。这次只是把“复制全量消息”换成“按配置准备本轮输入”，不是另写一条短历史循环。
 
 #### 为什么输入准备单独放一个 try
+
+**讲解摘录 · 输入准备 catch 中区分装不下与其他故障（无需写入文件）**
+
+<<< ../snippets/08/src/runtime/agent-loop.ts#explain-input-error
 
 最新一组太大时，ContextWindowError 在 decide 之前抛出。循环返回 context-limit，没有调用模型，也没有新增 assistant 消息或增加 decisions。
 

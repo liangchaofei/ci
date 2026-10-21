@@ -113,18 +113,22 @@ export async function runAgentLoop(
 
       try {
         // 等待整批收齐；执行器只拿到请求副本，没有 State 引用。
+        // #region explain-batch-wait
         results = await control.wait((signal) => runBatch(calls, signal));
         control.check();
+        // #endregion explain-batch-wait
       } catch (error) {
         if (control.outcome()) throw error;
         return { state, outcome: failure(errorMessage(error), "execution") };
       }
 
       // 整批确认后按请求顺序追加。取消不补写已完成的一半结果。
+      // #region explain-writeback
       state = {
         ...state,
         messages: [...state.messages, ...results.map((result) => ({ role: "tool" as const, result }))],
       };
+      // #endregion explain-writeback
     }
 
     control.check();

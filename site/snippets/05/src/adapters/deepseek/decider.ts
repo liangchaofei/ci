@@ -33,12 +33,14 @@ export function createDeepSeekDecider(options: DeepSeekOptions): Dependencies["d
     console.log(`[请求模型 model] 消息角色（roles）=${messages.map((m) => m.role).join(" -> ")}`);
 
     // 每轮请求最新消息；拿到响应后先解码，尚未执行任何工具。
+    // #region explain-model-call
     const payload = await requestDeepSeek(apiKey, {
       model, messages, tools, tool_choice: "auto",
       thinking: { type: "disabled" }, stream: false, max_tokens: 1024,
     }, signal);
 
     const action = decodeDeepSeekAction(payload);
+    // #endregion explain-model-call
 
     // 同名工具可以重复使用，但不同调用不能冒用已有 ID。
     if (action.kind === "tool" && context.messages.some((message) =>

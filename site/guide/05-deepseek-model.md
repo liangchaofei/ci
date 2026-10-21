@@ -138,6 +138,14 @@ requestDeepSeek 接收三个参数：apiKey 是本机密钥，body 是本次要�
 4. `await fetch(...)` 等到 HTTP 响应，response 接住响应对象；它包含状态码与响应体，还不是模型的回答字符串。
 5. `await response.json()` 读取并解析响应体，payload 接住解析后的值；`return payload` 把它交给本函数的调用方。
 
+::: info 以下摘录仅供对照
+解释中的代码片段已包含在上方对应的完整实现中，**无需再次写入、追加或替换文件**。继续实现时，以标明“新增、追加、替换”的步骤为准。
+:::
+
+**讲解摘录 · HTTP 响应由 response 接住（无需写入文件）**
+
+<<< ../snippets/05/src/adapters/deepseek/http.ts#explain-http
+
 注意两个 await 的等待内容不同：第一个取得 HTTP 响应，第二个取得响应体中的 JSON 数据。调用方最终拿到的是 payload，不是 response，也不是已转换的 Action。
 
 #### 为什么先返回 unknown
@@ -430,6 +438,10 @@ const observation = {
 
 同一个 ID 将“模型提出的请求”与“本地得到的结果”连起来。这里保留模型生成的 ID，不能继续把每次真实调用都固定为旧脚本的 read-1。[DeepSeek：工具结果关联示例](https://api-docs.deepseek.com/zh-cn/guides/tool_calls/)
 
+**讲解摘录 · 把本地结果转换为接口的 tool 消息（无需写入文件）**
+
+<<< ../snippets/05/src/adapters/deepseek/protocol.ts#explain-result
+
 content 中的 `content ?? null` 表示：有文字就保留，没有提供或为 null 就使用 null；空字符串仍是空字符串。它处理的是附带文字，不影响 call。发送工具结果时则保留整个 result，工具失败时 code 与 message 也会进入下一轮。
 
 #### 剩余分支为什么存在
@@ -506,6 +518,10 @@ const action = {
   },
 };
 ```
+
+**讲解摘录 · 参数文本需要再解析一次（无需写入文件）**
+
+<<< ../snippets/05/src/adapters/deepseek/protocol.ts#explain-arguments
 
 这里有两次不同的 JSON 解析：HTTP 函数里的 response.json 解析整份响应；解码器里的 JSON.parse 再解析 function.arguments。后者在接口中本来就是字符串，所以第一次解析后仍需要单独处理。
 
@@ -661,6 +677,10 @@ createDeepSeekDecider 返回一个函数。`Dependencies["decide"]` 的意思是
 不要混淆 tools 与 tool_calls：tools 是应用在请求里提供的可用工具清单；tool_calls 是模型在响应里提出的实际请求，才会有本次调用 ID 和参数。invoke 没有被发送，远程服务拿不到本地函数。
 
 #### 调用阶段：按一个返回值走完 decide
+
+**讲解摘录 · 取得响应，再转换为内部动作（无需写入文件）**
+
+<<< ../snippets/05/src/adapters/deepseek/decider.ts#explain-model-call
 
 进入返回的 async 函数后，按变量接收的顺序读：
 
