@@ -17,9 +17,12 @@ export function createToolRegistry(tools: readonly Tool[]): ToolRegistry {
     if (tool.name.trim().length === 0) {
       throw new Error("Tool name must not be empty");
     }
+
+    // 重名表示配置冲突，不能让后注册的工具悄悄替换已有实现。
     if (byName.has(tool.name)) {
       throw new Error(`Duplicate tool: ${tool.name}`);
     }
+
     // 保存名称与入口的当前值，而不是交出可变的注册对象。
     byName.set(tool.name, { name: tool.name, invoke: tool.invoke });
   }

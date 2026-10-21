@@ -1,0 +1,54 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="900" height="1060" viewBox="0 0 900 1060" role="img" aria-labelledby="title desc">
+<title id="title">流式进度在哪里暂存，完整动作在哪里进入 State</title>
+<desc id="desc">字节块经 readSseData 形成完整 data，collectDeepSeekAction 暂存文字与参数，期间只向显示入口发进度。确认 finish_reason 与 DONE 并通过解码后，decide 返回 Action，原循环才记录、执行与写回。断流取消不交回成功动作。</desc>
+<defs><marker id="arrow" markerWidth="8" markerHeight="8" refX="7" refY="4" orient="auto"><path d="M0 0 L8 4 L0 8 Z" fill="#356d5c"/></marker></defs>
+<rect width="900" height="1060" rx="18" fill="#fafcfb"/>
+<g font-family="PingFang SC, Microsoft YaHei, sans-serif" fill="#203b35">
+<text x="35" y="46" font-size="25" font-weight="700">流式显示不等于已经确认动作</text>
+<text x="35" y="78" font-size="17" fill="#52675f">第 06 篇 · 同一次决策中多次显示，最终只交回一个 Action</text>
+<g stroke="#b9cec4" stroke-width="1.5">
+<rect x="40" y="110" width="520" height="90" rx="12" fill="#edf3fa"/>
+<rect x="40" y="240" width="520" height="90" rx="12" fill="#edf3fa"/>
+<rect x="40" y="370" width="520" height="110" rx="12" fill="#fff7e7"/>
+<rect x="620" y="370" width="245" height="110" rx="12" fill="#f0f2f1"/>
+<rect x="40" y="550" width="520" height="110" rx="12" fill="#edf3fa"/>
+<rect x="620" y="550" width="245" height="110" rx="12" fill="#fff0ee"/>
+<rect x="40" y="740" width="520" height="90" rx="12" fill="#edf7f1"/>
+<rect x="40" y="880" width="520" height="90" rx="12" fill="#edf7f1"/>
+</g>
+<g font-size="20" font-weight="650">
+<text x="60" y="144">1  HTTP 字节块</text>
+<text x="60" y="274">2  SSE 完整事件</text>
+<text x="60" y="405">3  本次模型草稿 draft</text>
+<text x="640" y="405">进度显示</text>
+<text x="60" y="585">4  完整结束与解码</text>
+<text x="640" y="585">断流、取消或失败</text>
+<text x="60" y="774">5  decide 返回 Action</text>
+<text x="60" y="914">6  原循环记录并执行</text>
+</g>
+<g font-size="17" fill="#52675f">
+<text x="60" y="176">response.body：边界可能切开中文、JSON 或换行</text>
+<text x="60" y="306">readSseData：解码、按行读取，空行分隔 data</text>
+<text x="60" y="435">collectDeepSeekAction：拼文字、拼参数字符串</text>
+<text x="60" y="460">草稿不进入 State，不执行工具</text>
+<text x="640" y="435">ModelProgress 回调</text>
+<text x="640" y="460">仅显示新增字符串</text>
+<text x="60" y="615">finish_reason ＋ [DONE] ＋ 最终响应检查</text>
+<text x="60" y="640">参数在此解析为对象；半份数据不能通过</text>
+<text x="640" y="615">不交回成功动作</text>
+<text x="640" y="640">已显示文字不是完成证据</text>
+<text x="60" y="806">原循环仍只接收一个完整动作，接口不变</text>
+<text x="60" y="946">assistant 请求 → 工具执行 → tool 结果写回</text>
+</g>
+<g fill="none" stroke="#356d5c" stroke-width="2.5" marker-end="url(#arrow)">
+<path d="M300 200 V238"/><path d="M300 330 V368"/>
+<path d="M300 480 V548"/><path d="M300 660 V738"/>
+<path d="M300 830 V878"/>
+<path d="M560 425 H618" stroke-dasharray="7 6"/>
+<path d="M560 605 H618" stroke-dasharray="7 6"/>
+</g>
+<text x="320" y="518" font-size="17">只在本次响应完整结束后确认</text>
+<text x="320" y="707" font-size="17">动作检查通过，且运行仍可继续</text>
+<text x="40" y="1010" font-size="17">下一轮：从更新后的 State 构造 Context，再发一次请求。</text>
+<text x="40" y="1040" font-size="16" fill="#52675f">读取仍为固定源码；本图省略完成验证、次数预算与其他失败出口。</text>
+</g></svg>

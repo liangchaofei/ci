@@ -184,6 +184,19 @@ npm run check
 
 预期是先出现 `typecheck` 阶段且没有 TypeScript 错误，再出现 `test` 阶段，最后统计 **1 个测试通过、0 个失败**。耗时与 npm 输出细节因机器而异，不必逐字相同。若只见类型错误、完全没有测试输出，应先调查类型检查，而不是改测试断言。
 
+### 回看这些文件怎样组成工程检查
+
+package.json 保存“用什么命令检查”，tsconfig.json 保存“按什么类型规则检查”，environment.test.ts 保存“运行后要确认什么行为”。三者通过下面的命令链连接，不会仅因文件存在就自动执行：
+
+```text
+npm run check
+  → 读取 package.json 中的 check 脚本
+  → tsc 按 tsconfig.json 检查 src/ 与 test/
+  → 类型检查通过后，Node 运行 environment.test.ts 中的断言
+```
+
+这套工程检查返回命令成功或失败，尚未创建任务 State，也没有 Agent Loop。后续新增源码时沿用这个起点；不要把“取消信号环境测试通过”理解成已经实现运行取消。
+
 ## 第四步：亲手区分两类失败
 
 这两个实验每次只改一处，观察后立即恢复。不要在真实仓库中留下故意错误。

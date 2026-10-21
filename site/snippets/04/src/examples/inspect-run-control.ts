@@ -19,6 +19,7 @@ function show(result: RunResult): void {
   console.log(`决策次数（decisions）: ${result.state.decisions}`);
   console.log(`消息顺序（messages）: ${result.state.messages.map((m) => m.role).join(" -> ")}`);
 }
+
 const goal = "Diagnose why sum([]) fails";
 // #endregion shared
 
@@ -53,9 +54,13 @@ if (mode === "normal" || mode === "budget") {
       markStarted?.();
     }),
   };
+
   const running = runAgentLoop(goal, delayed, 3, { signal: controller.signal });
+
+  // 等到工具确实开始，再取消，才能稳定观察执行中的停止行为。
   await started;
   controller.abort();
+
   const result = await running;
   show(result);
   console.log(`工具收到取消（aborted）: ${executionSignal?.aborted}`);

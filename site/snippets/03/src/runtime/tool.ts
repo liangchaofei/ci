@@ -29,11 +29,13 @@ export function defineTool<Args>(definition: ToolDefinition<Args>): Tool {
   return {
     name: definition.name,
     async invoke(input) {
+      // 只有 parse 确认的参数才能进入执行体，模型声明不能替代此检查。
       const parsed = definition.parse(input);
       if (!parsed.ok) {
         return { status: "error", code: "invalid-arguments", message: parsed.message };
       }
 
+      // 到这里才开始实际操作；失败校验不会走到 execute。
       const value = await definition.execute(parsed.value);
       return { status: "ok", value };
     },

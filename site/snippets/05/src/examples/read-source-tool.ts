@@ -7,15 +7,20 @@ import { sourceCode, sourcePath } from "./diagnosis-fixture.ts";
 type ReadSourceArgs = { path: string };
 
 function parseReadSourceArgs(input: unknown): ParseResult<ReadSourceArgs> {
+  // 先确认对象形状，再读取字段，不能直接相信外部参数。
   if (typeof input !== "object" || input === null || Array.isArray(input)) {
     return { ok: false, message: "Arguments must be an object" };
   }
+
   if (!("path" in input) || typeof input.path !== "string" || input.path.trim() === "") {
     return { ok: false, message: "path must be a non-empty string" };
   }
+
+  // 只接受声明过的字段与本例路径，不让多余输入扩大工具能力。
   if (Object.keys(input).some((key) => key !== "path")) {
     return { ok: false, message: "Unexpected argument" };
   }
+
   if (input.path !== sourcePath) {
     return { ok: false, message: "Source path is not allowed" };
   }

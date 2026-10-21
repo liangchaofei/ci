@@ -53,7 +53,9 @@ export async function runAgentLoop(
   try {
     while (state.decisions < maxDecisions) {
       control.check();
+
       let action: Action;
+
       try {
         // 每轮都重新构造，才能包含上一轮刚写回的工具结果。
         const context = buildDecisionContext(state);
@@ -73,21 +75,26 @@ export async function runAgentLoop(
       if (action.kind === "fail") {
         return { state, outcome: failure(action.reason, "decision") };
       }
+
       if (action.kind === "finish") {
         try {
           // 模型的完成请求不是成功事实，必须交给应用规则核对。
           const accepted = dependencies.validateFinish(snapshot(state), action.answer);
           control.check();
+
           if (accepted) {
             return { state, outcome: { status: "completed", answer: action.answer } };
           }
+
           return { state, outcome: failure("Completion lacks verified evidence", "validation") };
         } catch (error) {
           if (control.outcome()) throw error;
           return { state, outcome: failure(errorMessage(error), "validation") };
         }
       }
+
       let result: ToolResult;
+
       try {
         result = structuredClone(await control.wait(
           (signal) => dependencies.executeTool(structuredClone(action.call), signal),
@@ -95,6 +102,7 @@ export async function runAgentLoop(
         control.check();
       } catch (error) {
         if (control.outcome()) throw error;
+
         // 执行错误也是观察，下一轮决策需要知道这次调用失败了。
         result = { callId: action.call.id, status: "error", code: "tool-error", message: errorMessage(error) };
       }
@@ -106,6 +114,7 @@ export async function runAgentLoop(
           outcome: failure("Tool result callId does not match the request", "execution"),
         };
       }
+
       // 只有确认属于本次调用的结果才能进入 State，供下一轮 decide 使用。
       state = { ...state, messages: [...state.messages, { role: "tool", result }] };
     }

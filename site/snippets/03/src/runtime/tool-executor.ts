@@ -6,6 +6,7 @@ export function createToolExecutor(
   registry: ToolRegistry,
 ): (call: ToolCall) => Promise<ToolResult> {
   return async (call) => {
+    // 先按名称取得已注册工具，未知名称不能触发任何执行体。
     const tool = registry.get(call.name);
     if (!tool) {
       return {
@@ -18,6 +19,7 @@ export function createToolExecutor(
 
     try {
       const output = await tool.invoke(call.arguments);
+
       // 工具只处理参数与值；调用身份统一取自原请求。
       return { ...output, callId: call.id };
     } catch (error) {

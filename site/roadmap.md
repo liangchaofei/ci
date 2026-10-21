@@ -78,4 +78,4 @@ Pi 的 [Agent Core](https://github.com/earendil-works/pi/blob/8efd314fa3d3232ce1
 
 模块较多时，安排较早可运行的阶段，让读者逐步观察新增行为。各阶段复用已有实现并收敛到最终版本；先理解主线，再补可靠性约束。检查每个阶段的迁移、命令和输出，不只验证最后一次运行。模拟能力标明未来替换位置，并用一个小迁移需求检查职责边界。
 
-课程网页源码位于 `site/`。本地运行 `npm run site:dev`；静态构建运行 `npm run site:build`。合并到 main 后，GitHub Actions 会自动构建并部署到 [在线教程](https://liangchaofei.github.io/ci/)。涉及网页的 PR 会先检查构建；构建失败不会继续发布。只需维护章节分支与 main，不需要再合并到 gh-pages。
+课程网页源码位于 `site/`。本地运行 `npm run site:dev`；静态构建运行 `npm run site:build`。章节提交须同时包含实现代码与 site/ 网站文件；只存在本地的页面不会随源码自动上传。合并到 main 后，GitHub Actions 会自动构建并部署到 [在线教程](https://liangchaofei.github.io/ci/)。涉及网页的 PR 会先检查构建；构建失败不会继续发布。只需维护章节分支与 main，不需要再合并到 gh-pages。

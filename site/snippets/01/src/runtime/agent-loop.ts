@@ -48,6 +48,7 @@ export async function runAgentLoop(
     // #endregion loop_start
     // #region decide
     let action: Action;
+
     try {
       action = structuredClone(await dependencies.decide(snapshot(state)));
     } catch (error) {
@@ -75,6 +76,7 @@ export async function runAgentLoop(
         if (dependencies.validateFinish(snapshot(state), action.answer)) {
           return { state, outcome: { status: "completed", answer: action.answer } };
         }
+
         return { state, outcome: failure("Completion lacks verified evidence", "validation") };
       } catch (error) {
         return { state, outcome: failure(errorMessage(error), "validation") };
@@ -84,6 +86,7 @@ export async function runAgentLoop(
 
     // #region execute
     let result: ToolResult;
+
     try {
       result = structuredClone(await dependencies.executeTool(structuredClone(action.call)));
     } catch (error) {

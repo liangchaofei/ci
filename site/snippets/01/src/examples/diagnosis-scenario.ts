@@ -25,6 +25,7 @@ const sourceCode =
 export async function simulateReadSource(call: ToolCall): Promise<ToolResult> {
   console.log(`[执行工具 execute] ${call.name} 文件路径（path）=${String(call.arguments.path)}`);
 
+  // 模拟执行也只接受约定的请求，不能对任意输入返回成功。
   if (call.name !== "read_source") {
     return { callId: call.id, status: "error", message: "Unsupported tool" };
   }
@@ -45,6 +46,7 @@ export async function scriptedDecide(state: Readonly<State>): Promise<Action> {
   const roles = state.messages.map((message) => message.role).join(" -> ");
   console.log(`[决策 decide ${state.decisions + 1}] 消息角色（roles）=${roles}`);
 
+  // 这个脚本只按已收到的消息选预设动作，不具备真实模型的分析能力。
   const lastMessage = state.messages.at(-1);
   if (lastMessage?.role === "user") {
     // 复用阶段一的请求创建函数，实际执行仍由调用方安排。

@@ -118,6 +118,17 @@ invoke 接收 `unknown`：调用者可以交入数据，但工具不能未经判
 
 这里没有 catch。检查函数意外抛错或执行体抛错，都会使 invoke 返回的 Promise 失败；第二阶段统一执行入口会将这类异常包装为工具错误。参数被规则拒绝则是正常返回的错误对象，二者走的路径不同。
 
+#### tool.ts：定义工具的统一调用方式
+
+这个文件把“工具作者的配置”变成“调用方可以使用的 Tool”。创建时，defineTool 接收 name、parse、execute，返回带 invoke 的对象；调用时，invoke 才执行 parse，检查成功后将 parsed.value 交给 execute，再把输出包装为 ToolOutput。
+
+```text
+工具作者：defineTool({ name, parse, execute }) → Tool
+调用方：Tool.invoke(原始参数) → parse → 合格才 execute → ToolOutput
+```
+
+parse 与 execute 的具体业务由工具作者提供，本文件只安排共同顺序；它不查工具名称、不添加调用 ID，也不写 State。后面的统一执行入口会在它外面补这几项职责中的查找与身份包装。
+
 ### 3. 把固定场景数据集中放好
 
 新建 `src/examples/diagnosis-fixture.ts`，写入完整内容：
@@ -169,7 +180,9 @@ import { sourceCode, sourcePath } from "./diagnosis-fixture.ts";
 
 `async execute(args)` 是具体读取体。它只在检查通过后运行，因此这里可以直接使用 args.path。日志放在执行体内部，便于观察请求是否到达了实际操作位置；返回的仍是固定 sourceCode，并没有调用文件系统。
 
-现在的分工是：parse 判断数据是否符合本工具规则，execute 完成具体操作，defineTool 保证两者按顺序发生。以后将模拟体换成真实读取，检查与调用顺序仍需要保留。
+到这里，read-source-tool.ts 已经组成一个完整工具：parseReadSourceArgs 规定什么参数可以读取，readSourceTool 用 defineTool 把检查器与模拟 execute 连起来，对外只导出这个 Tool 对象。调用方交入原始参数，invoke 最后交回源码或参数失败；本文件既不生成调用 ID，也不保存会话。
+
+它与 tool.ts 的区别是：tool.ts 安排所有工具共用的调用顺序，当前文件提供 read_source 的具体规则与操作。以后替换真实读取，应修改这里的执行体，并保持描述、检查和实际能力一致，而不是在循环中新增路径判断。
 
 ### 6. 第一次运行：合法参数与数字路径
 
@@ -255,6 +268,12 @@ byName 没有被直接交给外部。调用者可以查工具或取得名称列�
 
 注册发生在任务开始前，所以重复名称属于应用配置错误，不包装成某次模型调用的工具失败。修复方式是检查注册清单。它与运行中收到未知工具请求的处理位置不同。
 
+#### tool-registry.ts：持有工具清单，不执行请求
+
+文件中的 ToolRegistry 描述查找接口，createToolRegistry 根据应用交来的 Tool 列表建立名称索引，返回 get 与 names。创建函数结束后，两个返回函数继续引用内部 Map，因此清单仍能用于后续请求。
+
+本例的关系是“应用注册 readSourceTool → get("read_source") 取得 Tool”。查到对象不代表调用过 invoke；注册表也不会接收 State 或把工具定义放进会话。下一步执行器负责使用这张表，按收到的 ToolCall 调用具体入口。
+
 ### 9. 实现统一执行入口
 
 新建 `src/runtime/tool-executor.ts`，写入完整文件：
@@ -277,6 +296,12 @@ byName 没有被直接交给外部。调用者可以查工具或取得名称列�
 callId 始终取自原请求，工具体不用自己生成它。循环原有的对应关系检查仍保留：executeTool 是外部依赖，不能因为本入口正确包装，就删掉循环边界的核对。
 
 本入口现在接收项目内部的 ToolCall；它没有检查来自网络的整份未知 JSON 是否真是 ToolCall。以后接入模型时，会在适配边界处理动作形状。此处补的是工具参数运行时检查，不能用 TypeScript 声明代替外部数据校验。
+
+#### tool-executor.ts：将模型请求接到本地工具
+
+本文件的 createToolExecutor 接收注册表，返回可交给循环的 executeTool 函数。真正调用时，ToolCall 经过“按 name 查找 → invoke 检查与操作 → ToolOutput 补上原 call.id”，最后形成 ToolResult。
+
+它连接了前面两个文件：注册表决定名称对应哪个 Tool，tool.ts 保证 invoke 内先检查后执行；执行器负责把结果关联回这次请求。三个模块都没有保存会话，ToolResult 返回后仍要由 agent-loop.ts 核对并追加 tool 消息。
 
 ### 10. 迁移原场景与循环的错误兜底
 
@@ -302,6 +327,7 @@ const sourceCode =
 export async function simulateReadSource(call: ToolCall): Promise<ToolResult> {
   console.log(`[执行工具 execute] ${call.name} 文件路径（path）=${String(call.arguments.path)}`);
 
+  // 模拟执行也只接受约定的请求，不能对任意输入返回成功。
   if (call.name !== "read_source") {
     return { callId: call.id, status: "error", message: "Unsupported tool" };
   }
@@ -433,6 +459,12 @@ node src/examples/inspect-tools.ts
 ```
 
 每次结果的 callId 都与对应请求一致。执行体只打印一次：未知工具在查找时返回，两个参数错误在检查时返回，它们都没有进入本例读取体。
+
+### 迁移完成后，场景与入口各剩下什么职责
+
+diagnosis-scenario.ts 现在只提供请求创建、脚本决策与固定完成规则；实际读取已移到 read-source-tool.ts，共享常量由 diagnosis-fixture.ts 提供。它不再导出 simulateReadSource。
+
+first-loop.ts 则把 readSourceTool 注册，创建 executeTool，再与 scriptedDecide、hasDiagnosisEvidence 一起交给循环。inspect-tools.ts 直接调用同一执行器观察各类请求，不管理 State；inspect-context.ts 继续手动记录一次结果来比较输入。正式调度始终只有 agent-loop.ts 那一份，不会因为观察入口变多而出现多份核心。
 
 ## 接回 Runtime 后，一轮怎样走完
 
@@ -644,8 +676,10 @@ git status --short
 
 下面仅暂存本章源码。git add 将文件放入待提交区，commit 保存本地版本，push 将该分支发送到已配置的 origin。若改动范围符合预期，且上面的检查已实际运行通过，再复制提交命令：
 
+提交同时包含本章源码和 `site/` 网站更新；推送章节分支后，还需将 Pull Request 合并到 main，Actions 才会发布网页。
+
 ```bash
-git add -- src/runtime/tool.ts src/runtime/tool-registry.ts src/runtime/tool-executor.ts src/runtime/types.ts src/runtime/agent-loop.ts src/examples/diagnosis-fixture.ts src/examples/read-source-tool.ts src/examples/diagnosis-scenario.ts src/examples/inspect-tools.ts src/examples/first-loop.ts src/examples/inspect-context.ts
+git add -- src/runtime/tool.ts src/runtime/tool-registry.ts src/runtime/tool-executor.ts src/runtime/types.ts src/runtime/agent-loop.ts src/examples/diagnosis-fixture.ts src/examples/read-source-tool.ts src/examples/diagnosis-scenario.ts src/examples/inspect-tools.ts src/examples/first-loop.ts src/examples/inspect-context.ts site/
 git diff --cached --stat
 git commit -F - <<'COMMIT'
 第 03 篇：建立工具契约与统一执行入口

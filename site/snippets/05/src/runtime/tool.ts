@@ -38,6 +38,8 @@ export function defineTool<Args>(definition: ToolDefinition<Args>): Tool {
     parameters: structuredClone(definition.parameters),
     async invoke(input, signal) {
       signal.throwIfAborted();
+
+      // 只有 parse 确认的参数才能进入执行体，模型声明不能替代此检查。
       const parsed = definition.parse(input);
       if (!parsed.ok) {
         return { status: "error", code: "invalid-arguments", message: parsed.message };
@@ -45,6 +47,8 @@ export function defineTool<Args>(definition: ToolDefinition<Args>): Tool {
 
       // 检查函数也可能触发取消；开始实际操作前再确认一次。
       signal.throwIfAborted();
+
+      // 到这里才开始实际操作；失败校验不会走到 execute。
       const value = await definition.execute(parsed.value, signal);
       return { status: "ok", value };
     },

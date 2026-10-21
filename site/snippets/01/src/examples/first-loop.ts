@@ -17,6 +17,7 @@ const dependencies: Dependencies = {
 };
 
 const maxDecisions = 3;
+
 const result = await runAgentLoop("Diagnose why sum([]) fails", dependencies, maxDecisions);
 
 console.log(`运行结果（outcome）: ${result.outcome.status}`);

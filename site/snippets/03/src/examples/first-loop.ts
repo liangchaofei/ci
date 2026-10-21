@@ -12,6 +12,7 @@ import { readSourceTool } from "./read-source-tool.ts";
 
 // #region run
 // 入口注册本次任务允许使用的工具，再组装统一执行入口。
+
 const registry = createToolRegistry([readSourceTool]);
 const executeTool = createToolExecutor(registry);
 console.log(`已注册工具（tools）: ${registry.names().join(", ")}`);
@@ -22,6 +23,7 @@ const dependencies: Dependencies = {
 };
 
 const maxDecisions = 3;
+
 const result = await runAgentLoop("Diagnose why sum([]) fails", dependencies, maxDecisions);
 
 console.log(`运行结果（outcome）: ${result.outcome.status}`);

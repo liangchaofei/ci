@@ -3,8 +3,11 @@ import { createRunControl } from "../runtime/run-control.ts";
 
 const apiKey = process.env.DEEPSEEK_API_KEY?.trim();
 if (!apiKey) throw new Error("DEEPSEEK_API_KEY is required");
+
 const model = process.env.DEEPSEEK_MODEL?.trim() || "deepseek-flash";
+
 const control = createRunControl({ timeoutMs: 30_000 });
+
 try {
   const payload = await control.wait((signal) => requestDeepSeek(apiKey, {
     model,

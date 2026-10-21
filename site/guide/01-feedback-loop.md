@@ -492,6 +492,12 @@ Outcome 不追加成工具消息，也不覆盖 State，它是 RunResult 的另�
 
 validateFinish 是本教程选择的完成规则接口，不是模型 API 标准。诊断与修复需要不同证据，因此由场景提供规则，循环负责安排核对时机。
 
+#### types.ts 写完后，先把几类约定连起来
+
+这个文件是场景与循环共同使用的数据约定，不会自己运行决策或保存任务。ToolCall、ToolResult 描述一次请求与结果；Action 描述下一步；Message、State 描述按顺序留下的事实；Outcome、RunResult 描述退出时交回什么；Dependencies 则约定循环能调用的三个外部函数。
+
+因此读它时可以沿一条关系核对：决策返回 Action，工具动作里带 ToolCall；执行返回 ToolResult，循环把动作和结果包装成 Message 留在 State；退出时把 State 与 Outcome 一起组成 RunResult。实际对象在哪创建、什么时候更新，要继续看场景、循环和入口，类型声明不会替它们执行这些操作。
+
 ### 4.3 在场景里补上有限的完成规则
 
 在 `src/examples/diagnosis-scenario.ts` 末尾追加：
@@ -503,6 +509,19 @@ validateFinish 是本教程选择的完成规则接口，不是模型 API 标准
 为什么用 some 遍历历史，而不看最后一条？调用完成规则时，最后一条已经是刚记录的 finish 动作，源码证据在它前面。some 会逐条检查：user 与 assistant 不符合，回调返回 false 后继续；找到 callId 正确、status 为 ok、内容匹配的 tool 消息才返回 true。
 
 这使“答案字符串正确，但根本没有读取证据”的提前完成被拒绝；有证据但答案不符也被拒绝。它验证的仍只是固定场景，不会判断任意诊断的语义正确性，更没有证明文件已经修复。
+
+#### diagnosis-scenario.ts：把本例的业务能力放在一起
+
+到这里，这个分多次追加的文件已经完整。它负责固定诊断场景，向调用方提供四个函数：
+
+| 导出函数 | 在一次任务里负责什么 |
+|---|---|
+| createReadSourceCall | 创建带本例路径和身份的读取请求，只交出数据 |
+| scriptedDecide | 读取输入中的消息，提出 tool、finish 或 fail 动作 |
+| simulateReadSource | 接收请求，检查名称与路径，返回固定源码或失败结果 |
+| hasDiagnosisEvidence | 接收运行记录与候选答案，返回是否满足本例证据规则 |
+
+它们没有在文件里自动串成循环。接下来的入口会把后三个函数交给 Runtime，由 Runtime 决定何时调用、记录哪些返回值。换一个任务时，场景函数可以变化，循环不应因此知道 sourcePath 或 diagnosis。
 
 ### 4.4 创建循环文件：先看状态保护和错误表达
 
@@ -543,6 +562,7 @@ export async function runAgentLoop(
 
   while (state.decisions < maxDecisions) {
     let action: Action;
+
     try {
       action = structuredClone(await dependencies.decide(snapshot(state)));
     } catch (error) {
@@ -558,18 +578,22 @@ export async function runAgentLoop(
     if (action.kind === "fail") {
       return { state, outcome: failure(action.reason, "decision") };
     }
+
     if (action.kind === "finish") {
       try {
         // 模型的完成请求不是成功事实，必须交给应用规则核对。
         if (dependencies.validateFinish(snapshot(state), action.answer)) {
           return { state, outcome: { status: "completed", answer: action.answer } };
         }
+
         return { state, outcome: failure("Completion lacks verified evidence", "validation") };
       } catch (error) {
         return { state, outcome: failure(errorMessage(error), "validation") };
       }
     }
+
     let result: ToolResult;
+
     try {
       result = structuredClone(await dependencies.executeTool(structuredClone(action.call)));
     } catch (error) {
@@ -584,6 +608,7 @@ export async function runAgentLoop(
         outcome: failure("Tool result callId does not match the request", "execution"),
       };
     }
+
     // 只有确认属于本次调用的结果才能进入 State，供下一轮 decide 使用。
     state = { ...state, messages: [...state.messages, { role: "tool", result }] };
   }
@@ -638,6 +663,24 @@ maxDecisions 限制的是已取得并记录的动作数。上限 3 允许本例�
 
 函数追加完成后，运行 `npm run typecheck`。类型检查通过只说明代码可以继续组装，下一小节调用入口才会真正启动任务。
 
+#### agent-loop.ts：把这些能力组织成一次运行
+
+这个文件的公开入口是 runAgentLoop。调用方交入目标、Dependencies 与次数上限，最后取得 RunResult；snapshot、failure、errorMessage 是支持它的内部辅助函数，不各自启动任务。
+
+把整个文件按一次调用连起来看：
+
+```text
+入口调用 runAgentLoop
+  → 初始化本次 State
+  → decide 返回动作，循环记录 assistant
+  → tool：executeTool 返回结果，核对身份后记录 tool，再决策
+  → finish：validateFinish 核对证据，决定是否 completed
+  → fail、异常或次数耗尽：带着已有 State 退出
+  → RunResult 交回入口显示
+```
+
+消息更新与次数计数集中在这个文件，具体“读哪个文件、怎样得到结果、什么证据算完成”由传入函数提供。它没有连接真实模型、磁盘读取或超时管理；本篇先实现反馈与调度。
+
 ### 4.6 最后一次替换入口，使用通用循环
 
 将 `src/examples/first-loop.ts` 的阶段 3 内容全部删除，替换为下面的完整入口。前面已写的场景文件和类型保留：
@@ -650,7 +693,7 @@ maxDecisions 限制的是已取得并记录的动作数。上限 3 允许本例�
 
 返回后，result.state 是留下的记录，result.outcome 是退出原因。入口先输出通用信息，再按 status 读取答案或失败原因；预算耗尽没有这些额外字段，因此只显示前面的日志。
 
-与阶段 3 相比，入口不再手动更新 state 或调用第二次决策，这些职责已经移入 Runtime。入口只组装场景与循环，循环也不反向导入场景文件。
+把 first-loop.ts 作为一个完整文件看，它是本例的启动入口：选择三个场景函数，交给 runAgentLoop，再根据返回的 state、outcome 显示结果。与阶段 3 相比，手动写回与第二次决策已经移入循环；这个入口不再自己推进运行。依赖方向是入口同时导入场景和循环，循环不反向导入场景。
 
 运行：
 
@@ -837,10 +880,10 @@ git branch --show-current
 git status --short
 ```
 
-类型检查应通过，入口应输出正常的两次决策与 completed。当前分支应是 `codex/chapter-01-feedback-loop`。下面按路径选择本篇四个源码文件；若暂存区此前已有其他文件，先用 `git diff --cached --stat` 核对，因为新的 git add 不会移除先前的暂存内容。确认提交范围后，复制执行：
+类型检查应通过，入口应输出正常的两次决策与 completed。当前分支应是 `codex/chapter-01-feedback-loop`。下面按路径选择本篇四个源码文件和 site/ 网站更新；若暂存区此前已有其他文件，先用 `git diff --cached --stat` 核对，因为新的 git add 不会移除先前的暂存内容。确认提交范围后，复制执行：
 
 ```bash
-git add src/runtime/types.ts src/runtime/agent-loop.ts src/examples/diagnosis-scenario.ts src/examples/first-loop.ts
+git add -- src/runtime/types.ts src/runtime/agent-loop.ts src/examples/diagnosis-scenario.ts src/examples/first-loop.ts site/
 git commit -F - <<'COMMIT'
 第 01 篇：实现智能体反馈循环
 
@@ -860,4 +903,4 @@ git push -u origin codex/chapter-01-feedback-loop
 
 `-F -` 从标准输入读取正文；复制时保留 `<<'COMMIT'` 与最后独占一行、不缩进的 `COMMIT`，中间的换行会原样进入提交信息。`-u` 建立远程关联，后续在这个分支提交后可直接执行 `git push`。命令默认第 00 篇已提交、origin 已配置；若使用其他分支名，修改最后一个参数。
 
-命令中的四个路径对应本篇最终文件清单，中间入口版本已经被最终入口替换。课程网页的修改可以按文档变更另行提交。
+命令中的四个源码路径对应本篇最终文件清单，中间入口版本已经被最终入口替换。site/ 包含教程、参考代码与导航；推送后将 Pull Request 合并到 main，网站才会自动部署。

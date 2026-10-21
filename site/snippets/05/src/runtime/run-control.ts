@@ -20,18 +20,23 @@ function waitForResult<T>(
   check: () => void,
 ): Promise<T> {
   check();
+
   return new Promise<T>((resolve, reject) => {
     const cleanup = () => signal.removeEventListener("abort", onAbort);
     const onAbort = () => {
       cleanup();
       reject(signal.reason);
     };
+
     signal.addEventListener("abort", onAbort, { once: true });
 
     try {
+      // 先完成检查和监听，再启动依赖，避免已取消时仍先执行。
       Promise.resolve(start(signal)).then(
         (value) => {
           cleanup();
+
+          // 启动时允许执行，不代表返回时仍允许使用结果。
           try {
             check();
             resolve(value);
@@ -66,24 +71,31 @@ export function createRunControl(options: RunOptions = {}): RunControl {
   let stopped: StopOutcome | undefined;
   let timer: ReturnType<typeof setTimeout> | undefined;
 
+  // 先保存停止原因，再通知等待者；后续停止事件不能覆盖它。
   function stop(outcome: StopOutcome): void {
-    if (stopped) return; // 第一项被记录的停止原因保留，不被后续事件覆盖。
+    if (stopped) return;
     stopped = outcome;
     controller.abort(new Error("Run stopped"));
   }
+
   function outcome(): StopOutcome | undefined {
     // 计时器无法抢占同步代码；到达下一边界时再次核对实际耗时。
     if (!stopped && deadline !== undefined && performance.now() >= deadline) {
       stop({ status: "timed-out" });
     }
+
     return stopped ? { ...stopped } : undefined;
   }
+
   function check(): void {
     if (outcome()) throw controller.signal.reason;
   }
+
+  // 外部取消与本次计时器共同驱动内部控制器，依赖只收到 signal。
   const cancel = () => stop({ status: "cancelled" });
   if (externalSignal?.aborted) cancel();
   else externalSignal?.addEventListener("abort", cancel, { once: true });
+
   if (!stopped && timeoutMs !== undefined) {
     timer = setTimeout(() => stop({ status: "timed-out" }), timeoutMs);
   }
@@ -92,6 +104,8 @@ export function createRunControl(options: RunOptions = {}): RunControl {
     wait: (start) => waitForResult(start, controller.signal, check),
     check,
     outcome,
+
+    // 正常或异常退出都要释放资源，不能让计时器影响后续运行。
     dispose() {
       if (timer !== undefined) clearTimeout(timer);
       externalSignal?.removeEventListener("abort", cancel);

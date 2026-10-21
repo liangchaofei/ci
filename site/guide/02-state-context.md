@@ -26,7 +26,7 @@ description: 区分 State 与 Context，独立实现输入构造模块，让每�
 git switch -c codex/chapter-02-state-context
 ```
 
-若分支已存在，用 `git switch codex/chapter-02-state-context` 返回。网页修改可以另行提交，本章实现依赖的是第 1 篇的四个源码文件。下面命令都在仓库根目录执行。
+若分支已存在，用 `git switch codex/chapter-02-state-context` 返回。本章实现依赖第 1 篇的四个源码文件；章末提交同时包含网站更新。下面命令都在仓库根目录执行。
 
 ## 先把 Runtime 放回整条运行链
 
@@ -182,7 +182,9 @@ context.ts 不发请求、不执行工具、不更新运行状态，只准备输
 
 本章消息包含字符串、数组和普通对象，可以这样复制。[Node.js 的 structuredClone 文档](https://nodejs.org/download/release/v22.18.0/docs/api/globals.html#structuredclonevalue-options)说明了这个 API。若以后状态中出现函数或资源句柄，不能假定整份数据都能复制。
 
-这个 return 只是把新对象交回调用处。调用处要用变量接住它，再作为参数传给 decide；这里没有给 state 增加 context 字段，也没有改写 state.messages。工具结果仍须由循环先写回，之后调用本函数，才能进入下一份输入。
+把 context.ts 放回整条链看，它只提供 buildDecisionContext：接收调用方持有的 State，返回独立的 DecisionContext。它不持有另一份长期状态，不增加 state.context，也不改写消息。观察入口可以手工调用；接回循环后，则是每轮 decide 前由循环调用。
+
+调用关系是“最新 State → buildDecisionContext → 局部 context → decide”。如果希望新工具结果出现在输入里，必须先由循环写回 State，再调用本文件的函数；只保存上次返回的 context 不会自动跟随 State 更新。
 
 ### 1.3 写一个只观察输入的入口
 
@@ -270,6 +272,12 @@ node src/examples/inspect-context.ts
 
 两次 keys 都只有 messages；源码只出现在第二次准备的输入里。最后一行说明 State 仍保留控制计数，倒数第二行说明旧 Context 没有被后续更新悄悄改动。
 
+### inspect-context.ts 写完后，它验证了哪条关系
+
+这个文件的 showContext 负责展示，两段顶层代码负责手动创建 State、记录一次读取，再分别构造 firstContext 与 secondContext。前者保留读取前的输入，后者来自更新后的消息；它们用于对比，不是两个需要写入 State 的字段。
+
+整个入口的输入是本例固定任务，输出是两次输入的字段、角色与源码观察。它直接调用场景函数和 context.ts，不通过 runAgentLoop 调度。下一阶段接回正式循环时，复用的是 buildDecisionContext，手动推进状态的观察代码不会变成另一份 Runtime。
+
 ## 阶段 2：把输入准备接回原来的循环
 
 接下来是一次接口迁移：Dependencies、脚本决策器和循环调用处要一起更新。完成这三处前，类型检查可能指出参数不匹配；先按顺序修改，最后统一检查。执行器、完成规则和工具结果写回逻辑都保留。
@@ -336,6 +344,12 @@ try {
 buildDecisionContext 已经复制消息，所以这里不再把整份 snapshot(state) 传给 decide。返回动作仍复制后再留存，防止外部函数后续修改同一对象。完成规则处的 snapshot(state) 保留，那是另一条状态访问路径。
 
 本项目暂将输入准备、决策调用和返回动作复制都归在 decision 阶段。任一操作在这个 try 中抛错，会返回该阶段失败；不要因此认定错误一定来自模型服务。
+
+#### 这次修改后，两个文件的边界怎样变化
+
+agent-loop.ts 继续拥有 State，负责记录动作、工具结果和退出；context.ts 只负责从某一时刻的 State 准备本轮输入。循环调用 buildDecisionContext 取得 context 后，再调用 dependencies.decide(context)，返回的仍是原 Action。
+
+所以本篇没有把状态管理搬到 context.ts。它只是把“交给决策方哪些数据、怎样取得独立副本”从循环中抽成一个有明确输入输出的模块；完成验证仍从循环取得 State 副本。
 
 ### 2.4 继续运行第 1 篇的集成入口
 
@@ -511,10 +525,10 @@ git diff --cached --stat
 
 观察入口应只交出 messages，集成入口应在两次决策后 completed。当前分支应是 codex/chapter-02-state-context；确认暂存区没有之前遗留的其他内容。已有环境检查仍可用 `npm run check` 运行，但它不是本篇行为验证的替代。
 
-以下命令只暂存本章五个源码文件。中文提交说明中的验证描述，应与你实际完成的检查一致：
+以下命令暂存本章五个源码文件与 site/ 网站更新。中文提交说明中的验证描述，应与你实际完成的检查一致：
 
 ```bash
-git add src/runtime/types.ts src/runtime/context.ts src/runtime/agent-loop.ts src/examples/diagnosis-scenario.ts src/examples/inspect-context.ts
+git add -- src/runtime/types.ts src/runtime/context.ts src/runtime/agent-loop.ts src/examples/diagnosis-scenario.ts src/examples/inspect-context.ts site/
 git commit -F - <<'COMMIT'
 第 02 篇：分离运行状态与决策上下文
 
@@ -530,7 +544,7 @@ COMMIT
 git push -u origin codex/chapter-02-state-context
 ```
 
-git add 选择这次要保存的改动，git commit 生成本地版本，git push 首次上传并关联该分支。保留独占一行的 COMMIT 结束标记；网页改动按文档变更另行提交。遇到推送连接错误，先调查 Git 连接，不能靠重新写 Runtime 代码解决。
+git add 选择这次要保存的改动，git commit 生成本地版本，git push 首次上传并关联该分支。保留独占一行的 COMMIT 结束标记。推送章节分支后，还需将 Pull Request 合并到 main，网站才会自动部署。遇到推送连接错误，先调查 Git 连接，不能靠重新写 Runtime 代码解决。
 
 ## 知识依据
 

@@ -215,6 +215,19 @@ stop(outcome) 的参数名也叫 outcome，但它接收的是一个停止结果�
 
 dispose 只清除本模块建立的计时器和外部监听。它不回滚文件，也无法替忽略 signal 的工具关闭所有底层资源。第 9 步会用 finally 保证各个退出路径都执行它。
 
+#### run-control.ts 写完后，把这些函数串起来
+
+这个文件提供的是“一次运行的停止控制”，公开入口 createRunControl 接收 RunOptions，返回 control；并不接收目标、消息或 State。创建时保存截止时间、停止原因，连接外部取消；真正等待工作时，再通过返回的 wait 调用内部 waitForResult。
+
+```text
+调用方创建 control
+  → wait(start)：检查能否开始，等待工作结果或停止通知
+  → check / outcome：核对当前是否停止、取得停止原因
+  → dispose：运行结束后清理本次计时器与外部监听
+```
+
+内部 stop 记录原因并发出信号，outcome 同时补做截止时间核对，check 将停止变成控制流异常；它们共同支撑 wait，而不是分别运行四个任务。下一阶段循环会使用这份对象决定能否继续保存结果。谁改写 State、返回 RunResult，仍由循环负责。
+
 ### 4. 第一次运行：决策一直不返回
 
 新建 `src/examples/inspect-wait.ts`，写入完整入口：
@@ -294,6 +307,17 @@ execute 的第二个参数使具体工具也能收到信号，但检查不会自
 如果在进入时已经取消，开头的 throwIfAborted 会抛错，不查找或启动工具。如果调用工具以后才响应取消并抛错，try 内的 catch 仍可能将它包装为 tool-error。下一步循环会先核对本次控制器是否停止，再决定能否把它当作普通观察。
 
 所以本文件的新增职责是传递同一份 signal，没有变成停止原因的最终裁判。注册表仍只持有工具名称和入口，不保存每次运行的信号，也无需修改。
+
+#### 传递 signal 后，工具文件的职责没有交换
+
+tool.ts 仍定义 invoke 的共同检查顺序，现在把 signal 继续交给 execute；tool-executor.ts 仍按名称查找并包装 ToolResult，现在也把同一个 signal 传到 invoke。二者只是让停止通知经过已有调用链到达操作，不各自创建一份 Runtime 或停止计时器。
+
+因此调用链如下，工具结果仍沿原路返回，再由循环判断此时能否写回：
+
+```text
+循环 → executeTool(call, signal)
+  → invoke(arguments, signal) → execute(已确认参数, signal)
+```
 
 ### 8. 迁移两个直接执行入口
 
@@ -381,6 +405,12 @@ node src/examples/inspect-context.ts
 ```
 
 预期行为与第 3 篇一致：主任务 completed，两次决策；工具检查入口仍区分四种请求；Context 观察仍显示读取后多出 tool 消息。原主入口没有提供第四个参数，所以本次正常运行没有额外的时间上限。
+
+### agent-loop.ts 与 run-control.ts 现在怎样合作
+
+这次 runAgentLoop 创建一份 control 后，决策等待与工具等待都交给 control.wait；结果回来、准备记录时再 check。control 负责“还能不能继续”，循环负责“继续时记录什么”。
+
+正常完成时，循环按原规则记录动作、验证答案并交回 RunResult；停止时，外层 catch 取得 control.outcome，连同停止前的 State 返回；无论从哪条路径退出，finally 都调用 dispose。控制器及其计时信息不成为 State 字段，也不会出现在模型 Context 中。
 
 ## 第三阶段：在同一个 Runtime 上观察退出位置
 
@@ -507,9 +537,13 @@ if (mode === "normal" || mode === "budget") {
       markStarted?.();
     }),
   };
+
   const running = runAgentLoop(goal, delayed, 3, { signal: controller.signal });
+
+  // 等到工具确实开始，再取消，才能稳定观察执行中的停止行为。
   await started;
   controller.abort();
+
   const result = await running;
   show(result);
   console.log(`工具收到取消（aborted）: ${executionSignal?.aborted}`);
@@ -575,6 +609,12 @@ node src/examples/inspect-run-control.ts cancel-execution
 迟到结果返回后，消息数仍为 2。循环早已返回 cancelled，没有再次执行状态写回，也没有第二次 decide。末尾的短计时器只给迟到 Promise 的处理路径一次运行机会，不属于 Runtime 的超时机制。
 
 这里验证的是“迟到结果不进入本次运行状态”。它没有证明外部工具没有继续操作，更没有证明此前修改的文件恢复了。正常返回的 State 也未被深度冻结；调用方自己修改返回对象不在这项保护范围内。
+
+### 两个观察文件各自用来证明什么
+
+inspect-wait.ts 只创建控制对象并等待一个不返回的工作，用来单独检查等待能够超时；它没有会话状态。inspect-run-control.ts 则调用同一个 runAgentLoop，show 只负责打印，mode 选择正常、耗尽、超时或取消；cancel-execution 分支用 started 与 deliver 控制开始和迟到时刻。
+
+前者把问题缩小到 run-control.ts，后者检查它与循环接通后的状态边界。用于安排人工时刻的 Promise 属于观察入口，不需要复制到正式 Runtime 或普通业务入口里。
 
 ## 怎样调试：先找停止发生在哪一段
 
@@ -728,8 +768,10 @@ git diff --stat
 
 下面只暂存本章九个源码文件。git add 选择待提交内容，commit 保存本地版本，push 将本章分支发送到已配置的 origin：
 
+提交同时包含本章源码和 `site/` 网站更新；推送章节分支后，还需将 Pull Request 合并到 main，Actions 才会发布网页。
+
 ```bash
-git add -- src/runtime/run-control.ts src/runtime/types.ts src/runtime/tool.ts src/runtime/tool-executor.ts src/runtime/agent-loop.ts src/examples/inspect-wait.ts src/examples/inspect-run-control.ts src/examples/inspect-tools.ts src/examples/inspect-context.ts
+git add -- src/runtime/run-control.ts src/runtime/types.ts src/runtime/tool.ts src/runtime/tool-executor.ts src/runtime/agent-loop.ts src/examples/inspect-wait.ts src/examples/inspect-run-control.ts src/examples/inspect-tools.ts src/examples/inspect-context.ts site/
 git diff --cached --stat
 git commit -F - <<'COMMIT'
 第 04 篇：增加运行超时与外部取消控制

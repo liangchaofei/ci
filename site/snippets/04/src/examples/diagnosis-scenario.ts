@@ -20,6 +20,7 @@ export async function scriptedDecide(context: DecisionContext): Promise<Action> 
   const roles = context.messages.map((message) => message.role).join(" -> ");
   console.log(`[决策 decide] 消息角色（roles）=${roles}`);
 
+  // 这个脚本只按已收到的消息选预设动作，不具备真实模型的分析能力。
   const lastMessage = context.messages.at(-1);
   if (lastMessage?.role === "user") {
     // 这里只提出请求，注册查找与参数检查由执行入口安排。
