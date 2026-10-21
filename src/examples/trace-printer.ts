@@ -6,7 +6,10 @@ export function printRunEvent(event: RunEvent): void {
 
   switch (event.type) {
     case "run-started":
-      console.log(`${prefix}：运行开始`);
+      console.log(`${prefix}：${event.resumed ? "续运行开始" : "运行开始"}`);
+      break;
+    case "inputs-recorded":
+      console.log(`${prefix}：写入用户消息=${event.count}，种类=${event.kinds.join(",")}，消息=${event.messages}`);
       break;
     case "decision-started":
       console.log(`${prefix}：第 ${event.decision} 次决策，输入消息=${event.inputMessages}，输入字节=${event.inputBytes}，有摘要=${event.hasSummary}`);

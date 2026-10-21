@@ -5,7 +5,7 @@ import { testsPath, testsCode, batchCalls } from "./batch-fixture.ts";
 
 
 /** 按调用 ID 匹配证据，不假定一个请求后只跟一条工具消息。 */
-function hasBothReads(messages: readonly Message[]): boolean {
+export function hasBothReads(messages: readonly Message[]): boolean {
   const requests = new Map<string, ToolCall>();
   const verified = new Set<string>();
 

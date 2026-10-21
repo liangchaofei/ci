@@ -47,6 +47,7 @@ export type Outcome =
     }
   | { status: "budget-exhausted" }
   | { status: "context-limit"; reason: string }
+  | { status: "paused" }
   | StopOutcome;
 
 export type RunResult = { state: State; outcome: Outcome };

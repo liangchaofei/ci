@@ -1,9 +1,12 @@
+
 import { randomUUID } from "node:crypto";
 import type { Action, Outcome } from "./types.ts";
+import type { InputKind } from "./input-queue.ts";
 
 /** 报告阶段信息与最终 Outcome；不传出完整历史或可变 State 引用。 */
 export type EventPayload =
-  | { type: "run-started" }
+  | { type: "run-started"; resumed?: boolean }
+  | { type: "inputs-recorded"; kinds: InputKind[]; count: number; messages: number }
   | {
       type: "decision-started";
       decision: number;
