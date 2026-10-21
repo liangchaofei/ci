@@ -18,12 +18,16 @@ import type {
   State,
   ToolResult,
 } from "./types.ts";
+import { createRunState } from "./run-state.ts";
+import type { InputBoundary, RunInbox } from "./input-queue.ts";
 
 /** 执行调度配置独立于 RunControl，旧调用方可继续不提供。 */
 export type RunAgentOptions = RunOptions & {
   toolExecution?: ToolBatchOptions;
   context?: ContextWindowOptions;
   onEvent?: EventListener;
+  inbox?: RunInbox;
+  initialState?: Readonly<State>;
 };
 
 /** 保护循环拥有的消息；当前 State 只包含可结构化复制的数据。 */
@@ -56,14 +60,11 @@ export async function runAgentLoop(
 
   const runBatch = createToolBatchRunner(dependencies.executeTool, options.toolExecution);
   const buildContext = createContextBuilder(options.context);
-  const control = createRunControl(options);
 
-  // State 只属于这次调用；再次运行会得到新的消息与计数。
-  let state: State = {
-    goal,
-    messages: [{ role: "user", content: goal }],
-    decisions: 0,
-  };
+
+  // 配置与续运行状态先检查，再创建本段计时与取消资源。
+  let state = createRunState(goal, options.initialState);
+  const control = createRunControl(options);
 
   const report = createRunReporter(options.onEvent);
 
@@ -73,11 +74,29 @@ export async function runAgentLoop(
     return { state, outcome };
   }
 
+  // 只有循环在取出输入后追加 user 消息；排队阶段没有改历史。
+  function acceptInputs(boundary: InputBoundary): boolean {
+    control.check();
+    const inputs = options.inbox?.take(boundary) ?? [];
+    if (inputs.length === 0) return false;
+
+    state = {
+      ...state,
+      messages: [...state.messages, ...inputs.map((input) => ({ role: "user" as const, content: input.content }))],
+    };
+    report({ type: "inputs-recorded", kinds: inputs.map((input) => input.kind), count: inputs.length, messages: state.messages.length });
+    control.check();
+    return true;
+  }
+
   try {
-    report({ type: "run-started" });
+    report({ type: "run-started", resumed: options.initialState !== undefined });
 
     while (state.decisions < maxDecisions) {
       control.check();
+      if (options.inbox?.isPauseRequested()) return finish({ status: "paused" });
+      acceptInputs("before-decision");
+      if (options.inbox?.isPauseRequested()) return finish({ status: "paused" });
 
       let context: DecisionContext;
       try {
@@ -137,12 +156,18 @@ export async function runAgentLoop(
       }
 
       if (action.kind === "finish") {
+        // 新要求先于旧答案的完成；暂停只发生在没有待执行工具的边界。
+        if (options.inbox?.isPauseRequested()) return finish({ status: "paused" });
+        if (acceptInputs("before-decision")) continue;
+
         try {
           // 模型的完成请求不是成功事实，必须交给应用规则核对。
           const accepted = dependencies.validateFinish(snapshot(state), action.answer);
           control.check();
 
           if (accepted) {
+            if (options.inbox?.isPauseRequested()) return finish({ status: "paused" });
+            if (acceptInputs("before-finish")) continue;
             return finish({ status: "completed", answer: action.answer });
           }
 

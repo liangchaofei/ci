@@ -1,7 +1,6 @@
 import type { DecisionContext, Message } from "./types.ts";
 import { groupExchanges } from "./context-exchanges.ts";
 
-
 /** 限制本项目 Context 的 JSON 字节数；不是服务端 token 计量。 */
 export type ContextWindowOptions = {
   maxBytes: number;
@@ -36,16 +35,19 @@ export function createContextWindow(options: ContextWindowOptions): (messages: r
 
     // 先试全量；每次只多省略最早的一整组，优先保留更多近期原文。
     for (let drop = 0; drop <= maxDrop; drop += 1) {
+      // 新追加的 user 也要保留；旧输入不能被预算悄悄省略。
+      const retained = groups.filter((group, index) => index >= drop || group[0].role === "user").flat();
+      const omitted = groups.slice(0, drop).filter((group) => group[0].role !== "user").flat();
+
       let summary: string | undefined;
-      if (drop > 0 && summarize) {
-        const omitted = groups.slice(0, drop).flat();
+      if (omitted.length > 0 && summarize) {
         const text = summarize(structuredClone(omitted));
         if (typeof text !== "string") throw new Error("Context summary must be text");
         if (text.trim()) summary = text;
       }
 
       const context: DecisionContext = {
-        messages: [first, ...groups.slice(drop).flat()],
+        messages: [first, ...retained],
         ...(summary ? { summary } : {}),
       };
 
