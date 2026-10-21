@@ -835,10 +835,4 @@ COMMIT
 git push -u origin codex/chapter-08-context-window
 ```
 
-commit 保存到本地，push 上传章节分支。**推送章节分支不会直接发布生产网页。** 在 GitHub 创建该分支到 main 的 Pull Request，检查网站构建通过后再合并：
-
-[创建第 8 篇 Pull Request](https://github.com/liangchaofei/ci/compare/main...codex/chapter-08-context-window?expand=1)
-
-合并会触发 main 的自动构建与部署，不需要再合并到 gh-pages。[查看部署记录](https://github.com/liangchaofei/ci/actions/workflows/pages.yml)，确认 Build 与 Deploy 都成功后，访问[在线第 8 篇](https://liangchaofei.github.io/ci/guide/08-context-window)。在线链接只有网站提交合并并部署完成后才会出现；网页上的步骤不会自行执行你电脑里的 Git 命令。
-
 本篇得到了可解释的输入选择过程。下一篇再把“每轮构造了什么、执行了什么、何时停止”统一成运行事件，避免依靠散落的 console.log 理解整个任务。
