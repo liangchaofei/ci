@@ -1,5 +1,6 @@
 import type { ResultSink } from "./result-sink.ts";
 import { ResultSaveError } from "./result-sink.ts";
+import { createRunState } from "./run-state.ts";
 import { runAgentLoop } from "./agent-loop.ts";
 import type { RunAgentOptions } from "./agent-loop.ts";
 import { createEventBus } from "./events.ts";
@@ -69,6 +70,15 @@ export class Agent {
     return this.start(goal);
   }
 
+  /** 只安装经过应用恢复检查的暂停结果；这里不读取文件或恢复旧权限。 */
+  restore(result: Readonly<RunResult>): void {
+    if (this.isRunning || this.lastResult !== undefined) throw new Error("Restore requires a fresh instance");
+    if (result.outcome.status !== "paused") throw new Error("Restore requires a paused result");
+
+    const state = createRunState(result.state.goal, result.state);
+    this.lastResult = { state, outcome: { status: "paused" } };
+  }
+
   async resume(content: string): Promise<RunResult> {
     if (this.isRunning) throw new Error("Agent is already running");
     const previous = this.lastResult;
@@ -88,6 +98,8 @@ export class Agent {
     let runId: string | undefined;
 
     try {
+      // 先使磁盘上的旧完成边界失效，再发起模型或工具调用。
+      if (this.options.resultSink?.begin) await this.options.resultSink.begin();
       const result = await runAgentLoop(goal, this.dependencies, this.options.maxDecisions, {
         ...this.options.run,
         signal: controller.signal,

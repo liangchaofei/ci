@@ -34,6 +34,7 @@ export default defineConfig({
           { text: "09 观察运行与管理实例", link: "/guide/09-run-events" },
           { text: "10 接收新输入与暂停继续", link: "/guide/10-input-pause" },
           { text: "11 会话日志与检查点", link: "/guide/11-session-checkpoints" },
+          { text: "12 恢复与未知副作用", link: "/guide/12-safe-recovery" },
         ],
       },
     ],

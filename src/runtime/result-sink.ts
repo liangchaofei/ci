@@ -2,6 +2,8 @@ import type { RunResult } from "./types.ts";
 
 /** 必须等待的结果保存接口；不依赖文件系统，也不是事件订阅者。 */
 export type ResultSink = {
+  // 可选的段开始准备；失败时不得启动循环。
+  begin?: () => Promise<void>;
   save: (runId: string, result: Readonly<RunResult>) => Promise<void>;
 };
 
