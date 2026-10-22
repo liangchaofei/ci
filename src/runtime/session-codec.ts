@@ -47,7 +47,7 @@ function checkMessage(value: unknown): void {
   const result = object(message.result);
   text(result.callId);
   if (result.status === "ok" && "value" in result) return;
-  if (result.status !== "error" || (typeof result.code !== "string" || !["unknown-tool", "invalid-arguments", "tool-error"].includes(result.code))) {
+  if (result.status !== "error" || (typeof result.code !== "string" || !["unknown-tool", "invalid-arguments", "tool-error", "permission-denied"].includes(result.code))) {
     throw new Error("Invalid saved tool result");
   }
   text(result.message);
