@@ -6,7 +6,7 @@ import { sourceCode, sourcePath } from "./diagnosis-fixture.ts";
 /** 本例读取体只接受这一种已经校验的参数。 */
 type ReadSourceArgs = { path: string };
 
-function parseReadSourceArgs(input: unknown): ParseResult<ReadSourceArgs> {
+export function parseReadSourceArgs(input: unknown): ParseResult<ReadSourceArgs> {
   if (typeof input !== "object" || input === null || Array.isArray(input)) {
     return { ok: false, message: "Arguments must be an object" };
   }

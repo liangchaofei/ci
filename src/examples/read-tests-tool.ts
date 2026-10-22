@@ -5,7 +5,7 @@ import { testsPath, testsCode } from "./batch-fixture.ts";
 type ReadTestsArgs = { path: string };
 
 
-function parseReadTestsArgs(input: unknown): ParseResult<ReadTestsArgs> {
+export function parseReadTestsArgs(input: unknown): ParseResult<ReadTestsArgs> {
   if (typeof input !== "object" || input === null || Array.isArray(input) ||
       !("path" in input) || input.path !== testsPath ||
       Object.keys(input).some((key) => key !== "path")) {
