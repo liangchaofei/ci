@@ -163,11 +163,25 @@ sync 请求把文件数据同步到存储设备，实际保证依赖系统与设
 
 ### 4. 第一个可运行检查点
 
-新建 `src/examples/inspect-checkpoint.ts`：
+这个入口只做一次“内存对象 → 文件 → 读回文字”，先不启动 Agent。先在脑中保留这个顺序，再写下面三步；不是要从一整份文件里自己找主线。
 
-<<< ../snippets/11/src/examples/inspect-checkpoint.ts
+**第一步：确定文件写在哪里。** 新建 `src/examples/inspect-checkpoint.ts`：
 
-这份 record 是入口自己创建的已知数据，只有一条用户消息，还没读取任何源码。它用来检查文件往返，不冒充真实诊断的暂停进度。
+<<< ../snippets/11/src/examples/inspect-checkpoint.ts#probe-setup
+
+默认目录是 .agent-data，文件名固定为 checkpoint-probe.json。mkdir 准备目录，join 拼出目标路径；到这里还没保存任何运行结果。
+
+**第二步：准备要保存的对象。** 在同一文件末尾追加：
+
+<<< ../snippets/11/src/examples/inspect-checkpoint.ts#probe-record
+
+这份 record 是入口自己创建的已知数据，只有一条用户消息，还没读取任何源码。它用来检查文件往返，不冒充真实诊断的暂停进度。这里直接构造样本；后面的真实保存入口会从 Agent.run 取得结果。
+
+**第三步：调用刚实现的替换函数，再从文件读回。** 继续在末尾追加：
+
+<<< ../snippets/11/src/examples/inspect-checkpoint.ts#probe-io
+
+JSON.stringify 把对象变成文字，replaceTextFile 真正写盘；等它成功后，readFile 再从同一路径读取。最后两行只是把路径与读回文字显示出来。这个文件的目的就是验证这条往返路径，不负责校验外部文件或执行诊断。
 
 ```bash
 npm run typecheck
@@ -440,27 +454,75 @@ decodeJournal 得到 records；latest 取最后一条。最后再核对检查点
 
 ### 16. 在原场景上接入保存器
 
-新建 `src/examples/save-session.ts`：
+现在不另设计一个新任务。继续使用第 10 篇的“读取源码和测试，然后暂停”：以前拿到暂停结果就结束，现在要先保存，才显示“已保存”。这个入口负责把已有模块连接起来，保存算法仍在前面实现的 Runtime 文件中。
 
-<<< ../snippets/11/src/examples/save-session.ts
+先看要跑的过程：
 
-创建 store 先独占一个新目录，再把它作为 resultSink 交给 Agent。脚本、工具与完成规则全部复用第 10 篇；results-recorded 后只请求一次暂停。
+```text
+创建新会话的保存器
+→ 把保存器交给原来的 Agent
+→ 两项读取的结果写回 State 后，请求暂停
+→ Agent.run 等待结果保存，然后返回 paused
+→ 显示结果并关闭保存器
+```
 
-first 接到的是**保存完成后**返回的暂停结果，因此下一行可以写“已保存结果”。如果命令带 finish，还在同一个进程里显式 resume，再追加一条新段结果。finally 无论正常还是异常都关闭保存器。
+**第一步：准备已有依赖与保存位置。** 新建 `src/examples/save-session.ts`：
 
-保存器不负责 Agent 的模型依赖，Agent 也不自己拼文件路径。对外组合关系是：入口同时知道“用哪套 Runtime 依赖”和“把结果放哪里”，循环只知道任务步骤。
+<<< ../snippets/11/src/examples/save-session.ts#save-setup
+
+这些导入里，本篇接入的是 createSessionStore。Agent、两项读取工具、脚本决策、完成规则和事件显示沿用前面章节，不需要在这里重新学习它们的实现。
+
+命令 `node src/examples/save-session.ts lesson11` 中，lesson11 成为 sessionId；没有另传目录时，base 是 .agent-data。store 是接下来交给实例的保存器，创建成功只说明会话目录与日志文件准备好了，还没有 Agent 的运行结果。
+
+finish 是后面“两段运行”实验的开关，当前不传它，先沿一次暂停走到底。
+
+**第二步：连接实例、运行并关闭。** 在同一文件末尾追加下面完整 try/finally；这一块连续复制，不再单独重复追加下方的讲解摘录。
+
+<<< ../snippets/11/src/examples/save-session.ts#save-run
+
+这里分清两类连接就够了：decide、executeTool、validateFinish 仍然决定“怎样诊断”；**新增的 `resultSink: store` 决定“结果交给谁保存”**。只创建 store 却没有交给 Agent，Agent 不会主动去找这份文件。
+
+#### 为什么示例主动请求暂停
+
+**讲解摘录 · 等两项结果写回，再请求暂停（无需写入文件）**
+
+<<< ../snippets/11/src/examples/save-session.ts#save-pause
+
+printRunEvent 负责显示过程；第二个订阅只用于安排本次观察时机。results-recorded 表示两份读取结果已经写回 State，此时调用 pause，让循环在安全位置返回。paused 标志避免续运行时再次遇到该通知，又把同一个实验暂停一次。
+
+订阅本身没有写文件。真正的保存仍是上一节 Agent.start 中的 await save；这也正是我们没有把存盘塞进 subscribe 的原因。
+
+#### 哪一行能说明保存完成
+
+**讲解摘录 · run 返回之后才显示“已保存”（无需写入文件）**
+
+<<< ../snippets/11/src/examples/save-session.ts#save-call
+
+first 接住的是 Agent.run 的返回结果。因为实例已经等待保存器，走到 console.log 时，才可以显示“已保存结果”。如果保存失败，await 会抛错，这行成功日志不会执行。
+
+本次不传 finish，所以跳过 resume 分支，最后显示目录。finally 关闭保存器，确保命令退出前释放文件句柄。这个文件负责场景组装、启动与收尾，没有新增诊断算法或磁盘协议。
 
 ### 17. 写一个只读入口
 
-新建 `src/examples/inspect-session.ts`：
+第二个入口更简单：上一个命令已经退出，现在只拿同一个会话名，从文件找回结果。它不创建 Agent，也不再读取源码或测试。
 
-<<< ../snippets/11/src/examples/inspect-session.ts
+**第一步：加载这份会话。** 新建 `src/examples/inspect-session.ts`：
 
-这个文件只加载数据与显示，不导入 Agent 或场景脚本。最后对已知完整的 paused、completed 状态调用原 buildDecisionContext，重新构造全量输入副本。
+<<< ../snippets/11/src/examples/inspect-session.ts#read-load
 
-这里重建的不是一份旧 Context 缓存：磁盘保存的是 State，Context 从它重新生成。以后真正调用模型时仍要应用当时的输入预算、工具清单和模型配置；本篇没把这些配置或密钥当作会话状态保存。
+与保存命令传相同的 lesson11，就会访问同一个 .agent-data/lesson11。loaded 是读取器的返回值，包含完整记录、最后一条记录与检查点状态；这里拿到的是文件数据，不是上一个进程里的对象引用。
 
-对于取消后可能欠工具结果的状态，入口只显示记录，不把它直接当作可以发给模型的完整输入。
+**第二步：显示读回结果，检查能否重建输入。** 在文件末尾追加：
+
+<<< ../snippets/11/src/examples/inspect-session.ts#read-display
+
+先显示三项文件检查结果：读到了几条记录、是否忽略了未写完的末尾、检查点是否与日志一致。它们来自 loaded，不是入口自行猜测的。
+
+如果 latest 存在，就从中取出 seq 和 result。outcome、decisions 与消息角色来自这份已保存结果，所以可以与上一个命令结束时的输出核对。
+
+最后只对已知完整的 paused、completed 状态调用原 buildDecisionContext。磁盘保存的是 State，Context 从它重新生成；这里没有调用 decide，也没有自动继续执行。对于取消后可能欠工具结果的状态，只显示记录。
+
+这个文件完成“加载并显示”的连接，不处理日志解析算法。以后真正调用模型时，还要应用当时的输入预算、工具清单和模型配置；本篇没把这些配置或密钥当作会话状态保存。
 
 ### 18. 第一个进程保存，第二个进程读回
 
@@ -498,7 +560,7 @@ node src/examples/inspect-session.ts lesson11
 可重建全量输入消息（contextMessages）: 4
 ```
 
-没有第二次读取日志，也没有调用模型。四条消息来自磁盘中的结果，不是重新运行脚本造出来的。paused 只说明最后一段按暂停结束；这个入口没有把它自动继续。
+没有再次执行读取源码与测试的工具，也没有调用模型。四条消息来自磁盘中的结果，不是重新运行脚本造出来的。paused 只说明最后一段按暂停结束；这个入口没有把它自动继续。
 
 会话名已经存在时不要覆盖目录。如果要重新演示创建过程，换一个新名字，例如 lesson11-again，再用相同名字运行读取命令。
 
@@ -534,11 +596,28 @@ node src/examples/inspect-session.ts lesson11-finished
 
 ### 20. 准备独立故障入口
 
-新建 `src/examples/inspect-session-faults.ts`：
+这个文件是用来制造故障的实验装置，不是 Agent 正常运行的新步骤。先看下表，知道每次命令改变什么、准备观察什么，再决定是否展开内部实现。
+
+| 模式 | 只在临时目录制造什么 | 观察 Runtime 的哪种行为 |
+|---|---|---|
+| tail | 在日志末尾追加没有换行的半份 JSON | 读取器保留完整前缀，并标记 ignoredTail |
+| corrupt | 追加有换行的错误 JSON | 读取器拒绝完整坏行 |
+| version | 把记录版本改成 99 | 读取器拒绝不认识的版本 |
+| stale | 日志有两条，检查点退回第一条 | 返回日志最新结果，报告副本落后 |
+| save-error | 用同名目录挡住检查点文件替换 | Agent 报告保存失败，日志却可能已经写入 |
+
+下面提供完整装置，**本节先关注如何触发故障、结果为什么如此；不要求先读懂全部分支**。为了运行后面的命令，需要展开并将完整代码放进对应文件。它不替代前面 Runtime 的错误处理，也不需要把这些造错代码搬进核心。
+
+<details>
+<summary>创建故障实验入口：src/examples/inspect-session-faults.ts（完整代码）</summary>
+
+新建 `src/examples/inspect-session-faults.ts`，写入：
 
 <<< ../snippets/11/src/examples/inspect-session-faults.ts
 
-mode 决定要验证哪条边界。普通文件实验先保存一条已知、只有 user 的 paused 样本；这个样本验证文件协议，不代表真实完成过读取。随后只在临时目录里增加末尾、破坏完整行、修改版本或回退检查点。
+</details>
+
+需要追查实验装置时，再按“准备样本 → 只制造一种故障 → 调用读取器或实例 → 显示结果 → 清理”阅读。mode 决定要验证哪条边界。普通文件实验先保存一条已知、只有 user 的 paused 样本；这个样本验证文件协议，不代表真实完成过读取。随后只在临时目录里增加末尾、破坏完整行、修改版本或回退检查点。
 
 save-error 则走实际 Agent 保存流程：固定脚本给出一份答案，完成规则接受，但检查点路径被预先放了一份同名目录，导致替换失败。这里的完成规则刻意只服务固定故障装置，不复用为通用诊断验收。
 

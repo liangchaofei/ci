@@ -1,3 +1,4 @@
+// #region tutorial-part-1
 import { setTimeout as delay } from "node:timers/promises";
 import { createToolBatchRunner } from "../runtime/tool-batch.ts";
 import { createToolRegistry } from "../runtime/tool-registry.ts";
@@ -9,6 +10,8 @@ import { batchCalls } from "./batch-fixture.ts";
 const mode = process.argv[2] ?? "sequential";
 if (mode !== "sequential" && mode !== "parallel") throw new Error("Unknown mode");
 
+// #endregion tutorial-part-1
+// #region tutorial-part-2
 const executeTool = createToolExecutor(createToolRegistry([readSourceTool, readTestsTool]));
 const runBatch = createToolBatchRunner(async (call, signal) => {
   console.log(`开始调用（start）: ${call.id}`);
@@ -24,5 +27,8 @@ const runBatch = createToolBatchRunner(async (call, signal) => {
   parallelSafeTools: ["read_source", "read_tests"],
 });
 
+// #endregion tutorial-part-2
+// #region tutorial-part-3
 const results = await runBatch(batchCalls, new AbortController().signal);
 console.log(`返回结果顺序（callIds）: ${results.map((result) => result.callId).join(" -> ")}`);
+// #endregion tutorial-part-3

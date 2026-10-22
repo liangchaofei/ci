@@ -705,7 +705,17 @@ maxDecisions 限制的是已取得并记录的动作数。上限 3 允许本例�
 
 将 `src/examples/first-loop.ts` 的阶段 3 内容全部删除，替换为下面的完整入口。前面已写的场景文件和类型保留：
 
-<<< @/snippets/01/src/examples/first-loop.ts{ts:line-numbers} [src/examples/first-loop.ts · 最终入口]
+这次入口的目标是把“安排下一步”交给刚实现的循环。自己只保留：选依赖 → 调用循环 → 显示结果，不再手动执行两轮。
+
+**第 1 步：清空阶段 3 的入口内容，先写导入。**
+
+<<< @/snippets/01/src/examples/first-loop.ts#imports{ts:line-numbers} [src/examples/first-loop.ts · 导入]
+
+场景文件继续提供原来的三个函数，新增导入的是通用循环。导入函数不会执行它们。
+
+**第 2 步：在同一文件末尾追加组装、启动与结果显示。**
+
+<<< @/snippets/01/src/examples/first-loop.ts#run{ts:line-numbers} [src/examples/first-loop.ts · 组装与运行]
 
 入口将 scriptedDecide、simulateReadSource 和 hasDiagnosisEvidence 放入 Dependencies，再调用 runAgentLoop，等待这次运行的结果。这里传的是函数本身，没有加括号提前执行；循环需要在正确时机给它们传入最新状态或请求。
 

@@ -1,3 +1,4 @@
+// #region save-setup
 import { Agent } from "../runtime/agent.ts";
 import { createSessionStore } from "../runtime/session-store.ts";
 import { createToolRegistry } from "../runtime/tool-registry.ts";
@@ -12,7 +13,9 @@ const sessionId = process.argv[2] ?? "lesson11";
 const base = process.argv[3] ?? ".agent-data";
 const finish = process.argv[4] === "finish";
 const store = await createSessionStore(base, sessionId);
+// #endregion save-setup
 
+// #region save-run
 try {
   const agent = new Agent({
     decide: scriptedInputDecide,
@@ -20,14 +23,18 @@ try {
     validateFinish: hasBatchEvidence,
   }, { maxDecisions: 5, run: { timeoutMs: 1000 }, resultSink: store });
 
+// #region save-pause
   agent.subscribe(printRunEvent);
   let paused = false;
   agent.subscribe((event) => {
     if (event.type === "results-recorded" && !paused) { paused = true; agent.pause(); }
   });
+// #endregion save-pause
 
+// #region save-call
   const first = await agent.run("读取源码和测试片段，诊断空数组报错");
   console.log(`已保存结果（savedOutcome）: ${first.outcome.status}`);
+// #endregion save-call
   if (finish) {
     const second = await agent.resume(steerText);
     console.log(`已保存续运行（savedOutcome）: ${second.outcome.status}`);
@@ -36,3 +43,4 @@ try {
 } finally {
   await store.close();
 }
+// #endregion save-run

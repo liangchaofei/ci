@@ -214,7 +214,25 @@ Runtime 文件会继续演进；examples 是组装与观察入口。状态、输
 
 新建 `src/examples/inspect-events.ts`，写入完整代码：
 
-<<< ../snippets/09/src/examples/inspect-events.ts
+先不运行 Agent，只检查通知通道：给同一通道登记记录、显示和故意出错三种接收者，手动发两份报告，观察取消显示订阅是否影响其他接收者。
+
+**第 1 步：登记三个互不替代的接收者。** 在 `src/examples/inspect-events.ts` 中先写入以下内容：
+
+<<< ../snippets/09/src/examples/inspect-events.ts#tutorial-part-1
+
+trace 是入口自己持有的内存数组，显示只打印。故意抛错者是实验条件，用来检验隔离；它不属于正常业务要求。登记订阅不会自行发送通知。
+
+**第 2 步：按顺序手动发送两份通知。** 在 `src/examples/inspect-events.ts` 末尾追加以下完整代码：
+
+<<< ../snippets/09/src/examples/inspect-events.ts#tutorial-part-2
+
+同一个 report 为这两份通知提供相同 runId 和连续 seq。第一次发送后取消显示，再发送第二次；只取消这一位订阅者，不清空 trace。
+
+**第 3 步：核对通道行为。** 在 `src/examples/inspect-events.ts` 末尾追加以下完整代码：
+
+<<< ../snippets/09/src/examples/inspect-events.ts#tutorial-part-3
+
+trace 应有两项、编号为 1 -> 2，实时显示只有第一项。因为通知是手动发的，这还不能证明循环真的完成了任务，下一阶段才把发送位置接到实际运行。
 
 ```bash
 npm run typecheck
@@ -373,13 +391,27 @@ state 先变成新对象：decisions 从 0 变为 1，消息从一条 user 变�
 
 新建 `src/examples/inspect-trace.ts`，写入：
 
-<<< ../snippets/09/src/examples/inspect-trace.ts
+现在不再手动发通知，而是在原批次任务运行时收集真实报告。任务逻辑不变，本次只观察新增通知是否跟着实际步骤出现。
+
+**第 1 步：准备原任务和空轨迹。** 在 `src/examples/inspect-trace.ts` 中先写入以下内容：
+
+<<< ../snippets/09/src/examples/inspect-trace.ts#tutorial-part-1
+
+注册工具、脚本与完成规则沿用第 7 篇。trace 初始为空，接下来只有收到通知时才会增加，不是由最终 State 自动生成。
+
+**第 2 步：把记录与显示接到循环。** 在 `src/examples/inspect-trace.ts` 末尾追加以下完整代码：
+
+<<< ../snippets/09/src/examples/inspect-trace.ts#tutorial-part-2
+
+新增连接是 onEvent：同一份通知先放入 trace，再交给 printRunEvent 显示。这个回调没有执行工具或改写 State，运行步骤仍由原循环完成。
+
+**第 3 步：检查报告顺序。** 在 `src/examples/inspect-trace.ts` 末尾追加以下完整代码：
+
+<<< ../snippets/09/src/examples/inspect-trace.ts#tutorial-part-3
+
+result 是运行结果，trace 是观察者收集的报告，两者来源不同。用最终退出原因对照轨迹末项，不能因为保存了某份通知就宣称工具结果已经写回。
 
 如果换回第 5、6 篇的真实模型决策器，仍从相同的 decide 接口返回 Action，这些运行通知继续有效。模型正在输出的文字分片仍走适配器的进度回调；本章 decision-recorded 只报告完整动作通过检查并被记录之后的事实。这里先用脚本，让两次决策与轨迹能够稳定复现。
-
-这个入口只比旧的批次入口多两件事：建立 trace 数组，并提供 onEvent。每到一个报告，先把自己的报告副本 push 进数组，再显示它。**创建数组不等于循环会自动保存通知；是 onEvent 里的 push 完成保存。**
-
-注册表、执行器、脚本和完成规则全部复用旧代码。5 是决策额度上限，不是要求运行 5 次。并行白名单仍只允许这两项独立固定读取。
 
 ```bash
 npm run typecheck
@@ -495,11 +527,25 @@ node src/examples/inspect-trace.ts
 
 新建 `src/examples/inspect-agent.ts`，写入完整代码：
 
-<<< ../snippets/09/src/examples/inspect-agent.ts
+这个入口只验证实例的正常生命周期：创建 Agent → 订阅 → 启动 → 查看忙碌 → 等待结束 → 查看结果。取消、重入和坏观察者都在后面的独立装置里，不混进这条路径。
 
-这个入口依次做四件事：组装原有依赖，创建实例，先订阅显示，再启动任务。它没有新脚本，也没有额外的预设成功流程。
+**第 1 步：把原来的循环依赖交给实例。** 在 `src/examples/inspect-agent.ts` 中先写入以下内容：
 
-为什么不立即 `await agent.run(...)`？这里先用 pending 接住 Promise，打印运行期间的 isRunning，再 await pending。pending 代表“这次运行结束时会得到的结果”；不是 State，也不是取消控制器。
+<<< ../snippets/09/src/examples/inspect-agent.ts#tutorial-part-1
+
+这里仍注册相同的两个工具，提供相同的脚本和证据规则。Agent 是新建的管理对象，此时没有运行任务；循环依赖没有被重新实现。
+
+**第 2 步：先订阅，再启动但暂不等待。** 在 `src/examples/inspect-agent.ts` 末尾追加以下完整代码：
+
+<<< ../snippets/09/src/examples/inspect-agent.ts#tutorial-part-2
+
+pending 接住本次运行的 Promise，马上检查 isRunning。先不 await，才能在运行期间观察忙碌；这不是同时启动第二个任务。
+
+**第 3 步：等待结束并核对结束快照。** 在 `src/examples/inspect-agent.ts` 末尾追加以下完整代码：
+
+<<< ../snippets/09/src/examples/inspect-agent.ts#tutorial-part-3
+
+await pending 后才能把实例当作本段运行已退出。unsubscribe 只移除显示接收者；result 是本次返回值，agent.result 是实例持有的结束副本。日志用于对照这两个时刻。
 
 ```bash
 npm run typecheck
@@ -552,6 +598,20 @@ inspect-agent.ts
 
 ### 15. 准备可控的故障入口
 
+每次只选一种实验，不是让正常业务同时支持所有造错动作：
+
+| 模式 | 刻意制造什么 | 主要观察什么 |
+|---|---|---|
+| reentry | 第一段尚未结束就再次 run | 第二次拒绝，第一次仍完成 |
+| cancel | batch-started 时请求取消 | 工具未启动，不报告结果写回 |
+| observer | 一位接收者修改自己的副本并异步失败 | 任务和其他记录者不受其破坏 |
+| mismatch | 工具交回错误 callId | 不把错误关联写入 State |
+
+本节是独立故障装置。先按表理解预期，再展开按三步创建文件；完整代码仍需创建，才能执行后面的命令。首次阅读不需要逐一追完其他模式的内部条件。
+
+<details>
+<summary>创建完整故障装置：准备实例 → 登记观察 → 启动与收尾</summary>
+
 新建 `src/examples/inspect-agent-faults.ts`，先写下面这一步：
 
 <<< ../snippets/09/src/examples/inspect-agent-faults.ts#setup
@@ -579,6 +639,9 @@ inspect-agent.ts
 最后取消记录与显示的订阅，再打印已收集的编号和最终消息。这里“保存结果”从实例 getter 取得，“消息顺序”从第一次返回值取得，“轨迹条数”从入口自己的数组取得。三者来源不同，能互相核对，但不会自动替代彼此。
 
 这个文件就是故障装置：设置模式 → 组装旧依赖与延时包装 → 登记观察者 → 启动并观察。它不属于 Runtime 核心，也不需要把这些 if 分支搬进业务入口。
+
+
+</details>
 
 ### 16. 拒绝第二次启动，第一次仍正常完成
 

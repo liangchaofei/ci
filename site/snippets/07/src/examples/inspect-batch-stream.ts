@@ -1,6 +1,9 @@
+// #region tutorial-part-1
 import { collectDeepSeekAction } from "../adapters/deepseek/stream-protocol.ts";
 import { toolCallsOf } from "../runtime/action-tools.ts";
 
+// #endregion tutorial-part-1
+// #region tutorial-part-2
 /** 故意让 index 1 先到，只检查多调用草稿，不访问网络或执行工具。 */
 async function* events(): AsyncGenerator<string> {
   const deltas = [
@@ -31,6 +34,8 @@ async function* events(): AsyncGenerator<string> {
   yield "[DONE]";
 }
 
+// #endregion tutorial-part-2
+// #region tutorial-part-3
 const action = await collectDeepSeekAction(events(), new AbortController().signal, (event) => {
   if (event.type === "tool-arguments-delta") {
     console.log(`参数片段（index=${event.index}）: ${JSON.stringify(event.delta)}`);
@@ -40,3 +45,4 @@ console.log(`动作类型（kind）: ${action.kind}`);
 for (const call of toolCallsOf(action)) {
   console.log(`完整调用（call）: ${call.id} -> ${JSON.stringify(call.arguments)}`);
 }
+// #endregion tutorial-part-3

@@ -23,6 +23,7 @@ function show(result: RunResult): void {
 const goal = "Diagnose why sum([]) fails";
 // #endregion shared
 
+// #region tutorial-cases
 // #region basic
 const mode = process.argv[2] ?? "normal";
 if (mode === "normal" || mode === "budget") {
@@ -73,3 +74,4 @@ if (mode === "normal" || mode === "budget") {
   throw new Error(`Unknown mode: ${mode}`);
 }
 // #endregion late
+// #endregion tutorial-cases

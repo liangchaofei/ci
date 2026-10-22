@@ -207,6 +207,8 @@ body 字节流 → readLines：完整行
 
 新建 `src/examples/inspect-sse.ts`，写入完整内容：
 
+先认清本次输入与输出：人工输入是一段带中文的 SSE 文本，故意每两字节送一次；期望输出仍按完整事件出现，而不是每两字节一条。body 只制造碎字节，readSseData 才是被验证的解析器；这里没有模型决策或工具执行。
+
 <<< ../snippets/06/src/examples/inspect-sse.ts
 
 TextEncoder 将字符串变成 UTF-8 字节。新建的 ReadableStream 中，start 接到的是流的控制对象，它的 enqueue 把字节放进流，close 表示不再提供更多字节。这里的 controller 属于流，不是 AbortController；它不能取消整个 Runtime。
@@ -401,7 +403,16 @@ record 与 metadata 帮助检查局部值、保持身份一致。正常接收期
 
 新建 `src/examples/stream-fixture.ts`，写入完整内容：
 
+后面的 Runtime 实验需要一份每次都相同的响应：先显示“先查看源码”，再依次送 `{"path":` 与 `"src/sum.ts"}` 两段参数；完整模式补结束标记，断流模式不补。这个文件只制造输入，没有决定下一步或执行读取。
+
+先带着这条数据顺序看下面的说明。为了运行后面的入口，需要展开并创建完整文件；其中造数据和切字节的实现可在排查实验输入时再细读，函数保持连续。
+
+<details>
+<summary>人工字节流装置：src/examples/stream-fixture.ts（完整函数）</summary>
+
 <<< ../snippets/06/src/examples/stream-fixture.ts
+
+</details>
 
 createToolStream 是可重复观察的响应替身，不是新模型接口。它创建三份 delta：文字、第一片工具参数、第二片工具参数。frames 将每份 delta 包装为本章已经认识的 choices 结构。
 
@@ -415,11 +426,25 @@ start 中 enqueue 与 close 是准备人工字节，不代表读取文件，也�
 
 新建 `src/examples/inspect-stream.ts`，写入完整内容：
 
-<<< ../snippets/06/src/examples/inspect-stream.ts
+先只运行 complete：让人工分片进入真实解析器，观察“参数片段出现”之后是否确实执行了一次工具。主线是人工字节流 → SSE 数据 → 完整 Action → 原循环执行；cut 与 cancel 在正常过程跑通后再看。
 
-这个入口只替换 decide 的数据来源：人工流 → SSE 解析 → 同一个 collectDeepSeekAction。执行器、读取工具和循环都复用正式实现。命令参数 mode 选择完整、断流或取消；未知值直接拒绝。
+**第 1 步：准备读取工具和外部停止信号。** 在 `src/examples/inspect-stream.ts` 中先写入以下内容：
 
-executions 只在 executeTool 真被调用时加一，不根据日志推测。controller 是外部 AbortController，signal 交给本次运行。cancel 模式在收到第一片工具参数的同步回调里主动取消，时间点固定，不依赖一个可能快慢不同的 setTimeout。
+<<< ../snippets/06/src/examples/inspect-stream.ts#tutorial-part-1
+
+mode 默认 complete。readSourceTool 与执行器沿用旧实现；controller 是调用方的取消入口。executions 从 0 开始，只统计真正进入执行函数的次数，不统计显示过多少片段。
+
+**第 2 步：把流式决策接到原循环。** 在 `src/examples/inspect-stream.ts` 末尾追加以下完整代码：
+
+<<< ../snippets/06/src/examples/inspect-stream.ts#tutorial-part-2
+
+本篇要理解的是 decide 中的两次调用：readSseData 从字节流取事件，collectDeepSeekAction 等完整响应后交出 Action。onProgress 只显示暂存内容；complete 不触发取消分支。executeTool 的包装只计数，随后仍调用旧执行器。整个 await 是一次完整运行，先不要把回调当成另一条循环。
+
+**第 3 步：比较暂存输出和正式结果。** 在 `src/examples/inspect-stream.ts` 末尾追加以下完整代码：
+
+<<< ../snippets/06/src/examples/inspect-stream.ts#tutorial-part-3
+
+result 是循环退出后取得的结果。先看 executions 是否为 1，再看 messages 是否已有 tool；进度日志再多，也不能替代这两项证据。cut 去掉结束标记，cancel 在参数片段到达时停止，它们的预期输出在后面的实验中分别核对。
 
 #### 先看完整响应
 
@@ -580,11 +605,33 @@ node src/examples/first-loop.ts
 
 新建 `src/examples/deepseek-stream-agent.ts`，写入完整内容：
 
-<<< ../snippets/06/src/examples/deepseek-stream-agent.ts
+与第 5 篇真实入口相比，本次只把 decide 配置成流式接收，并显示文字增量。原循环、执行器和完成规则继续使用，不另写一套“流式 Agent”。下面代码替换整个入口时按顺序写入。
+
+**第 1 步：读取原有配置。** 在 `src/examples/deepseek-stream-agent.ts` 中先写入以下内容：
+
+<<< ../snippets/06/src/examples/deepseek-stream-agent.ts#tutorial-part-1
+
+密钥与模型名仍来自环境变量。准备这些配置不会自动发请求；真实调用由随后循环调用 decide 时开始。
+
+**第 2 步：开启流式决策并登记显示回调。** 在 `src/examples/deepseek-stream-agent.ts` 末尾追加以下完整代码：
+
+<<< ../snippets/06/src/examples/deepseek-stream-agent.ts#tutorial-part-2
+
+新增的核心配置是 stream:true。onProgress 只把 text-delta 显示到终端，不执行工具、不追加 State，也不把暂存文字标成最终答案。
+
+**第 3 步：运行相同的诊断任务。** 在 `src/examples/deepseek-stream-agent.ts` 末尾追加以下完整代码：
+
+<<< ../snippets/06/src/examples/deepseek-stream-agent.ts#tutorial-part-3
+
+把新的 decide 交给旧循环，其余依赖照常连接。适配器内部虽然逐片接收，循环仍等待一次完整 Action；它不需要改成逐片调度。
+
+**第 4 步：显示本次运行的确定结果。** 在 `src/examples/deepseek-stream-agent.ts` 末尾追加以下完整代码：
+
+<<< ../snippets/06/src/examples/deepseek-stream-agent.ts#tutorial-part-4
+
+前面可能已经显示了文字，但完成与失败仍以 result.outcome 为准。这里在 await 返回后显示角色、次数与正式答案，避免把半途输出误认为任务成功。
 
 与第 5 篇入口对照，只增加了流式配置和显示回调：stream:true 选择新路径；text-delta 到达时用 process.stdout.write 追加文字，不为每片内容额外换行。工具参数增量没有在正常入口打印，避免把协议观察混进用户回答。
-
-其余仍按“读配置 → 注册工具 → 创建 decide → 运行原循环 → 显示最终结果”的顺序。读取工具、诊断提示词、hasReadEvidence 都复用上一章，没有把固定诊断答案喂给真实模型。
 
 在根目录确认 `.env` 已配置后运行：
 

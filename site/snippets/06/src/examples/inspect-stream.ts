@@ -1,3 +1,4 @@
+// #region tutorial-part-1
 import { runAgentLoop } from "../runtime/agent-loop.ts";
 import { createToolRegistry } from "../runtime/tool-registry.ts";
 import { createToolExecutor } from "../runtime/tool-executor.ts";
@@ -15,6 +16,8 @@ const controller = new AbortController();
 const executeTool = createToolExecutor(createToolRegistry([readSourceTool]));
 let executions = 0;
 
+// #endregion tutorial-part-1
+// #region tutorial-part-2
 const result = await runAgentLoop(
   "请诊断 src/sum.ts 中 sum([]) 失败的原因。",
   {
@@ -39,6 +42,8 @@ const result = await runAgentLoop(
   { signal: controller.signal, timeoutMs: 1000 },
 );
 
+// #endregion tutorial-part-2
+// #region tutorial-part-3
 // 循环结束后再显示正式状态，与前面的暂存输出区分。
 console.log(`运行结果（outcome）: ${result.outcome.status}`);
 console.log(`工具执行次数（executions）: ${executions}`);
@@ -46,3 +51,4 @@ console.log(`已记录决策（decisions）: ${result.state.decisions}`);
 console.log(`消息顺序（messages）: ${result.state.messages.map((m) => m.role).join(" -> ")}`);
 
 if (result.outcome.status === "failed") console.log(`失败原因（reason）: ${result.outcome.reason}`);
+// #endregion tutorial-part-3

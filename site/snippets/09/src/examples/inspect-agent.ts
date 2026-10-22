@@ -1,3 +1,4 @@
+// #region tutorial-part-1
 import { Agent } from "../runtime/agent.ts";
 import { createToolRegistry } from "../runtime/tool-registry.ts";
 import { createToolExecutor } from "../runtime/tool-executor.ts";
@@ -19,13 +20,18 @@ const agent = new Agent({
   },
 });
 
+// #endregion tutorial-part-1
+// #region tutorial-part-2
 // 订阅必须早于启动，否则收不到已经发出的开始事件。
 const unsubscribe = agent.subscribe(printRunEvent);
 const pending = agent.run("读取源码和测试片段，诊断空数组报错");
 console.log(`实例忙碌（isRunning）: ${agent.isRunning}`);
 
+// #endregion tutorial-part-2
+// #region tutorial-part-3
 const result = await pending;
 unsubscribe();
 console.log(`运行结果（outcome）: ${result.outcome.status}`);
 console.log(`实例忙碌（isRunning）: ${agent.isRunning}`);
 console.log(`保存结果（savedOutcome）: ${agent.result?.outcome.status}`);
+// #endregion tutorial-part-3

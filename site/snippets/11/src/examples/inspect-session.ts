@@ -1,9 +1,12 @@
+// #region read-load
 import { loadSession } from "../runtime/session-reader.ts";
 import { buildDecisionContext } from "../runtime/context.ts";
 
 const sessionId = process.argv[2] ?? "lesson11";
 const base = process.argv[3] ?? ".agent-data";
 const loaded = await loadSession(base, sessionId);
+// #endregion read-load
+// #region read-display
 console.log(`日志记录数（records）: ${loaded.records.length}`);
 console.log(`忽略未写完末尾（ignoredTail）: ${loaded.ignoredTail}`);
 console.log(`检查点状态（checkpoint）: ${loaded.checkpointStatus}`);
@@ -21,3 +24,4 @@ if (loaded.latest) {
     console.log(`可重建全量输入消息（contextMessages）: ${context.messages.length}`);
   }
 }
+// #endregion read-display

@@ -164,7 +164,9 @@ signal 原样交给 fetch：Runtime 超时或外部取消时，停止通知可�
 
 ### 3. 用一个短入口确认连接
 
-新建 `src/examples/ask-deepseek.ts`，写入完整内容：
+这个短入口只验证“请求发得出去、响应拿得回来”，还不让模型调用工具，也不启动 Agent Loop。已有 HTTP 函数处理网络请求，入口只准备配置、交给等待控制并显示原始 JSON。
+
+新建 `src/examples/ask-deepseek.ts`，写入下面完整内容；文件较短，保留连续 try/finally，随后沿一次调用解释：
 
 <<< ../snippets/05/src/examples/ask-deepseek.ts
 
@@ -784,17 +786,31 @@ index + 1 能用于取对应结果，是因为当前循环逐个执行工具，�
 
 新建 `src/examples/deepseek-agent.ts`，写入完整内容：
 
-<<< ../snippets/05/src/examples/deepseek-agent.ts
+这个入口要把已实现的 HTTP、协议转换与循环真正连起来：创建能请求模型的 decide → 与本地执行器一起交给原循环 → 等最终结果。这里不再实现模型协议或工具逻辑。
 
-#### 这个入口怎样把模块连起来
+**第 1 步：读取连接配置。** 在 `src/examples/deepseek-agent.ts` 中先写入以下内容：
 
-这次 examples 是调用方：它不是另一个 Runtime，而是在选工具、选模型、选完成规则后调用同一个运行函数。按从上到下的顺序看：
+<<< ../snippets/05/src/examples/deepseek-agent.ts#tutorial-part-1
 
-1. **读配置**：从环境变量取得 apiKey、model，缺少密钥就拒绝启动。
-2. **建注册表**：`createToolRegistry([readSourceTool])` 将本地读取工具注册进去，registry 保存名称与工具对象。
-3. **建决策器**：createDeepSeekDecider 使用这个 registry 提取工具说明，返回 decide；创建时还没有网络请求。
-4. **启动循环**：runAgentLoop 接收用户目标、三个依赖、次数上限和时间配置。`createToolExecutor(registry)` 同样返回一个函数；循环之后才会调用它执行请求。
-5. **等最终结果**：`await runAgentLoop(...)` 结束后，result 才接到 `{ state, outcome }`，下面的日志显示最终事实。
+导入的循环、工具与完成规则均已实现。apiKey 和 model 从环境变量取值；缺少密钥会在启动任务前退出，尚未发模型请求。不要把密钥改写成源码中的字符串。
+
+**第 2 步：让模型说明与本地执行共用注册表。** 在 `src/examples/deepseek-agent.ts` 末尾追加以下完整代码：
+
+<<< ../snippets/05/src/examples/deepseek-agent.ts#tutorial-part-2
+
+registry 既提供模型可见的工具说明，也供本地按名称执行。createDeepSeekDecider 返回 decide 函数，此处只是创建它，真正调用要由后面的循环安排。
+
+**第 3 步：启动已有循环并等待。** 在 `src/examples/deepseek-agent.ts` 末尾追加以下完整代码：
+
+<<< ../snippets/05/src/examples/deepseek-agent.ts#tutorial-part-3
+
+本章新增的连接是把真实 decide 传进去。循环仍负责记录动作、执行工具、写回结果与再次决策；5 是决策额度，timeoutMs 是本次运行时间限制。
+
+**第 4 步：显示已经返回的结果。** 在 `src/examples/deepseek-agent.ts` 末尾追加以下完整代码：
+
+<<< ../snippets/05/src/examples/deepseek-agent.ts#tutorial-part-4
+
+这里读取的是 RunResult，completed 才显示正式答案，failed 显示来源与原因。日志不会替循环判断完成，也不会把接口原始响应直接当答案。
 
 三个依赖各自回答一个不同问题：
 

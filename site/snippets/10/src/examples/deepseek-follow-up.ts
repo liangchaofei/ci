@@ -1,3 +1,4 @@
+// #region tutorial-part-1
 import { Agent } from "../runtime/agent.ts";
 import { createToolRegistry } from "../runtime/tool-registry.ts";
 import { createToolExecutor } from "../runtime/tool-executor.ts";
@@ -22,6 +23,8 @@ const agent = new Agent({
   validateFinish: hasBatchEvidence,
 }, { maxDecisions: 8, run: { timeoutMs: 120_000, context: { maxBytes: 18000 } } });
 
+// #endregion tutorial-part-1
+// #region tutorial-part-2
 agent.subscribe(printRunEvent);
 let queued = false;
 agent.subscribe((event) => {
@@ -31,7 +34,10 @@ agent.subscribe((event) => {
   }
 });
 
+// #endregion tutorial-part-2
+// #region tutorial-part-3
 const result = await agent.run("请结合源码与测试，诊断 sum([]) 报错并给最小修复建议。");
 console.log(`运行结果（outcome）: ${result.outcome.status}`);
 if (result.outcome.status === "completed") console.log(`最终答案（answer）: ${result.outcome.answer}`);
 if (result.outcome.status === "failed") console.log(`失败原因（reason）: ${result.outcome.reason}`);
+// #endregion tutorial-part-3

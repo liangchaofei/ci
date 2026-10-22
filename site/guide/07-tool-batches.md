@@ -323,9 +323,25 @@ Promise.all 等待的是这几个 worker 全部结束。若一开始就把 6 次
 
 新建 `src/examples/inspect-tool-batch.ts`，写入完整入口：
 
-<<< ../snippets/07/src/examples/inspect-tool-batch.ts
+这个入口只调用批次执行器，不启动 Agent Loop。实验输入固定是源码、测试两项请求；想比较的是开始与完成的先后，以及返回数组是否仍按请求顺序排列。
 
-这个入口注册两种工具，创建原 executeTool，再用它创建 runBatch。包装函数只增加开始、完成日志，并在源码读取前等待 20 毫秒，让另一项能够先完成；延迟不是 Runtime 的固定策略。
+**第 1 步：选择这次观察的执行方式。** 在 `src/examples/inspect-tool-batch.ts` 中先写入以下内容：
+
+<<< ../snippets/07/src/examples/inspect-tool-batch.ts#tutorial-part-1
+
+先用 sequential，再用 parallel。两种方式使用同一份 batchCalls，变化仅是调度方式，不能通过换一份输入来假装验证顺序。
+
+**第 2 步：在原执行器外加可见的开始与完成。** 在 `src/examples/inspect-tool-batch.ts` 末尾追加以下完整代码：
+
+<<< ../snippets/07/src/examples/inspect-tool-batch.ts#tutorial-part-2
+
+executeTool 仍负责名称和参数检查。包装函数增加日志，并只把源码读取延后 20 毫秒，制造“测试先完成”的可见条件；这不是工具业务规则。createToolBatchRunner 的返回值 runBatch 才是接下来要调用的批次入口。
+
+**第 3 步：提交整批并核对关联。** 在 `src/examples/inspect-tool-batch.ts` 末尾追加以下完整代码：
+
+<<< ../snippets/07/src/examples/inspect-tool-batch.ts#tutorial-part-3
+
+await runBatch 等本批结束，results 按原调用顺序排列。开始与完成日志用于看执行过程，callIds 用于看返回顺序，两者可能不同。
 
 先运行顺序模式：
 
@@ -512,11 +528,25 @@ hasBatchEvidence 在循环收到 finish 后使用，要求答案非空且两份�
 
 新建 `src/examples/inspect-batch-loop.ts`，写入完整入口：
 
-<<< ../snippets/07/src/examples/inspect-batch-loop.ts
+先只运行 parallel，fault 保持 none：脚本提出两项读取，循环整批执行并写回，然后下一次决策完成。error、mismatch、cancel 是后续故障实验开关，不是正常入口必须同时完成的功能。
 
-这一入口不再直接调用 runBatch，而是调用 runAgentLoop。传入的 decide 是刚写的脚本，executeTool 继续使用注册表中的两种工具，validateFinish 使用两份材料的检查规则。这样开头的“请求 → 执行 → 写回 → 再决策”就完整接通了。
+**第 1 步：组装已经存在的场景与执行器。** 在 `src/examples/inspect-batch-loop.ts` 中先写入以下内容：
 
-executeTool 外面的包装函数记录开始、完成，并让源码读取稍等 20 毫秒，方便观察测试先返回。mode 选择顺序或并行；fault 默认 none，稍后用来制造失败或取消。每次 executions 加一只表示启动了一次工具调用，不是增加一次模型决策。
+<<< ../snippets/07/src/examples/inspect-batch-loop.ts#tutorial-part-1
+
+decide 和完成规则来自本章已写的 batch-scenario。mode 选择顺序或并行，fault 默认 none；controller 只供后面的取消实验使用。这里尚未启动任务。
+
+**第 2 步：让同一循环处理这批请求。** 在 `src/examples/inspect-batch-loop.ts` 末尾追加以下完整代码：
+
+<<< ../snippets/07/src/examples/inspect-batch-loop.ts#tutorial-part-2
+
+本章新增的连接是 toolExecution 配置：允许两项已声明安全的读取并行、并发上限为 2。executeTool 包装中的延时与开始/完成日志只用于观察；fault 为 none 时三个造错条件都跳过。真正执行仍回到 execute。
+
+**第 3 步：检查整批是否进入历史。** 在 `src/examples/inspect-batch-loop.ts` 末尾追加以下完整代码：
+
+<<< ../snippets/07/src/examples/inspect-batch-loop.ts#tutorial-part-3
+
+executions 是启动次数，callIds 来自返回 State 中的 tool 消息。先核对正常批次，再用后面的单一故障命令判断哪些结果允许写回；不能仅凭完成日志就认定已经保存。
 
 运行：
 
@@ -696,11 +726,27 @@ collect 的其他流程保留：普通事件只组装，收到 `[DONE]` 才完�
 
 新建 `src/examples/inspect-batch-stream.ts`，写入完整内容：
 
-<<< ../snippets/07/src/examples/inspect-batch-stream.ts
+这不是完整 Agent 任务，也不会读取文件。要单独验证：两个工具的参数片段交错到达时，收集器能否按各自 index 拼好，最后按调用顺序交出完整请求。
+
+**第 1 步：接入收集器与调用读取函数。** 在 `src/examples/inspect-batch-stream.ts` 中先写入以下内容：
+
+<<< ../snippets/07/src/examples/inspect-batch-stream.ts#tutorial-part-1
+
+collectDeepSeekAction 是本章扩展的流式边界；toolCallsOf 只从最终动作取出调用。下面先准备它们的人工输入。
+
+**第 2 步：制造一份交错到达的事件输入。** 在 `src/examples/inspect-batch-stream.ts` 末尾追加以下完整代码：
+
+<<< ../snippets/07/src/examples/inspect-batch-stream.ts#tutorial-part-2
+
+events 是完整的异步生成函数，必须整体写入。按顺序看 deltas：先给 index=1 的开头，再给 index=0 的开头，再分别补尾部。两个不同 index 的参数不能混拼；结束标记补齐后，才允许交出动作。这份固定输入只为验证收集器，不是模型推理代码。
+
+**第 3 步：收集完成后再检查完整调用。** 在 `src/examples/inspect-batch-stream.ts` 末尾追加以下完整代码：
+
+<<< ../snippets/07/src/examples/inspect-batch-stream.ts#tutorial-part-3
+
+参数进度日志显示到达顺序；await 返回的 action 才是完整结果。最后遍历调用，核对 id 与各自 path，不能在前面的片段回调里启动工具。
 
 events 用 async function* 一次交出一条人工事件，供 collectDeepSeekAction 的 for await 接收。这里直接提供完整 data 文本，不再模拟第 6 篇的 SSE 字节分割。前两条先交出测试、源码各自的身份和半份参数，后两条再补齐，最后交出结束原因和 `[DONE]`。
-
-入口等待 collect 返回完整 Action 后，才用 toolCallsOf 取出请求并打印。片段日志来自 onProgress；完整调用日志来自最后返回的动作，它们代表两个不同的时刻。
 
 运行：
 
@@ -723,13 +769,31 @@ node src/examples/inspect-batch-stream.ts
 
 新建 `src/examples/deepseek-batch-agent.ts`，写入完整内容：
 
-<<< ../snippets/07/src/examples/deepseek-batch-agent.ts
+这个真实入口复用第 6 篇模型适配器，只增加第二种读取工具与批次执行配置。先沿“注册两种工具 → 创建 decide → 调用原循环”理解，流式开关只选择响应接收方式。
 
-这里把刚才的离线决策器换成真实 decide。入口先读本地模型配置，创建含两种读取工具的 registry；再调用 createDeepSeekDecider，准备模型调用所需的说明和工具清单。到 runAgentLoop 调用 decide 时，才发出网络请求。
+**第 1 步：读取配置并选择响应方式。** 在 `src/examples/deepseek-batch-agent.ts` 中先写入以下内容：
 
-交给循环的三项依赖仍然一样：decide 负责请求动作，createToolExecutor(registry) 负责执行每一项，hasBatchEvidence 检查两份材料。toolExecution 配置则交给 Runtime，让它按上限 2 安排并行，不由模型决定。
+<<< ../snippets/07/src/examples/deepseek-batch-agent.ts#tutorial-part-1
 
-最终 result 是整个运行的返回值，下面的日志从中读退出原因、决策次数和消息历史。onProgress 只在接收响应期间显示文字，不保存历史。这个入口没有人工延迟、故障开关，也不会把 diagnosis 当成模型答案；运行核心仍是前面那套。
+默认使用完整响应，命令参数为 stream 时才开启流式。密钥仍从环境变量读取，本篇不改变配置方式。
+
+**第 2 步：同时说明两种工具。** 在 `src/examples/deepseek-batch-agent.ts` 末尾追加以下完整代码：
+
+<<< ../snippets/07/src/examples/deepseek-batch-agent.ts#tutorial-part-2
+
+同一 registry 交给模型适配器，随后也交给本地执行器。模型可以选择一项或多项请求；注册两项不会强迫模型一定返回批次。onProgress 仍只显示文字。
+
+**第 3 步：允许受限的并行读取。** 在 `src/examples/deepseek-batch-agent.ts` 末尾追加以下完整代码：
+
+<<< ../snippets/07/src/examples/deepseek-batch-agent.ts#tutorial-part-3
+
+核心变化在 toolExecution：只允许列出的两个读取工具并行，concurrency 为 2。真实模型选择动作，Runtime 检查与执行，完成规则核对证据；这三者不互相替代。
+
+**第 4 步：等待退出后显示确定结果。** 在 `src/examples/deepseek-batch-agent.ts` 末尾追加以下完整代码：
+
+<<< ../snippets/07/src/examples/deepseek-batch-agent.ts#tutorial-part-4
+
+结果日志读取循环返回值，不根据流式文字猜成功。真实模型的文字和请求次数可能不同于固定脚本，仍需检查证据与退出原因。
 
 配置好 `.env` 后分别运行：
 

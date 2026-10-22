@@ -456,9 +456,25 @@ output 的长原文不出现在摘要中，所以省了空间；失败用例与�
 
 将 `src/examples/inspect-context-window.ts` 整个文件替换为当前完整入口：
 
-<<< ../snippets/08/src/examples/inspect-context-window.ts
+这一阶段还不启动 Agent。给同一份完整 State 准备两份 Context，比较发送大小、保留消息和摘要，再确认原始历史没有减少。先看 plain 与 summary，small 和 huge-summary 留到故障实验。
 
-入口先准备同一份样本，再构造全量 Context 和配置后的 Context。mode 只是选择观察方式：plain 不带摘要，summary 带结构化摘要；small 与 huge-summary 留给故障实验。除了日志，它没有把选择结果赋回 state。
+**第 1 步：沿用同一份历史样本。** 在 `src/examples/inspect-context-window.ts` 中先写入以下内容：
+
+<<< ../snippets/08/src/examples/inspect-context-window.ts#tutorial-part-1
+
+state 仍是前面构造的含长日志历史。mode 只是选择本次比较方式；这些常量和导入尚未裁剪任何消息。
+
+**第 2 步：先显示原历史与完整分组。** 在 `src/examples/inspect-context-window.ts` 末尾追加以下完整代码：
+
+<<< ../snippets/08/src/examples/inspect-context-window.ts#tutorial-part-2
+
+slice(1) 跳过固定保留的首条 user，再对工具交互分组。输出 2 -> 3 用来认出日志组与近期批次组，它们是后续选择的单位。groups 模式到这里就结束。
+
+**第 3 步：比较两份输入并检查原历史。** 在 `src/examples/inspect-context-window.ts` 末尾追加以下完整代码：
+
+<<< ../snippets/08/src/examples/inspect-context-window.ts#tutorial-part-3
+
+full 是无裁剪输入，context 是按 maxBytes 与保留组规则构造的新输入。plain 不带摘要，summary 带已写好的 summarizeBuildLog；它们都不赋值回 state。最后一行再次显示原历史条数，正是本实验需要的对照。整个 if 是完整逻辑块，连续追加。
 
 先运行只裁剪的方式：
 
@@ -589,11 +605,25 @@ context 是输入选择配置，toolExecution 是工具调度配置。两者都�
 
 新建 `src/examples/inspect-windowed-loop.ts`，写入完整内容：
 
-<<< ../snippets/08/src/examples/inspect-windowed-loop.ts
+这次把单独验证过的输入选择接回循环：先拿到长日志，再读源码和测试，下一轮准备输入时省略旧日志正文并补摘要，最终完成诊断。先用 normal 跑这条主线。
 
-入口仍给 runAgentLoop 三项依赖：脚本 decide、单项 executeTool、原 hasBatchEvidence。源码和测试继续走已有注册表；只有 read_build_log 由本例包装函数返回固定长日志，不会真实执行构建命令。
+**第 1 步：准备相同的三轮场景。** 在 `src/examples/inspect-windowed-loop.ts` 中先写入以下内容：
 
-decide 外层只增加输入日志：每次打印的条数与字节数来自它这次收到的 Context，不是 State。executions 则在工具真正进入包装函数时增加。
+<<< ../snippets/08/src/examples/inspect-windowed-loop.ts#tutorial-part-1
+
+两项读取与完成规则沿用前文。normal 的 maxBytes 为 14600；small 与 latest-large 只在后面故障实验改变预算。计数变量仅用于显示，不参与循环决策。
+
+**第 2 步：把输入配置交给每轮决策。** 在 `src/examples/inspect-windowed-loop.ts` 末尾追加以下完整代码：
+
+<<< ../snippets/08/src/examples/inspect-windowed-loop.ts#tutorial-part-2
+
+新增连接是 options.context。decide 包装打印本轮实际收到的输入，再调用已有脚本；executeTool 对 build.log 返回固定长日志，其他读取仍走已检查的执行器。长日志是教学数据，不是 Runtime 必须内置的特殊工具。
+
+**第 3 步：分清输入变短与历史减少。** 在 `src/examples/inspect-windowed-loop.ts` 末尾追加以下完整代码：
+
+<<< ../snippets/08/src/examples/inspect-windowed-loop.ts#tutorial-part-3
+
+result.state 仍保留完整事实，context 日志展示每轮选中的输入。先看三轮输入如何变化，再核对最终 State；输入限制时则看 context-limit 原因，而不是修改脚本假装完成。
 
 默认预算 14600 是为这个固定样本选择的实验值：第二轮的长日志输入能装下，但第三轮再加源码与测试后装不下，需要省略早期日志。真实应用不能照抄这个数值作为模型 token 上限。
 

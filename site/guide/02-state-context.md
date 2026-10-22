@@ -188,7 +188,9 @@ context.ts 不发请求、不执行工具、不更新运行状态，只准备输
 
 ### 1.3 写一个只观察输入的入口
 
-创建 `src/examples/inspect-context.ts`，先写导入和展示函数：
+这次观察只比较“读取前的输入”和“把结果写回后重新生成的输入”。不调用循环，也不增加新的 Agent 行为；入口中的手动更新只是为了单独看清这两份对象。
+
+按“展示准备 → 初始状态 → 写回后再次构造”依次写入同一个文件，三部分合起来就是章末完整入口。创建 `src/examples/inspect-context.ts`，先写导入和完整展示函数：
 
 <<< @/snippets/02/src/examples/inspect-context.ts#imports{ts:line-numbers} [src/examples/inspect-context.ts · 导入]
 
