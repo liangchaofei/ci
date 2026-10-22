@@ -7,6 +7,7 @@ import type { ProgressListener } from "./stream-protocol.ts";
 import { buildDeepSeekMessages, decodeDeepSeekAction } from "./protocol.ts";
 import { toolCallsOf, previousToolCallIds } from "../../runtime/action-tools.ts";
 import { validateToolBatch } from "../../runtime/tool-batch.ts";
+import { DependencyError } from "../../runtime/dependency-error.ts";
 
 export type DeepSeekOptions = {
   apiKey: string;
@@ -14,6 +15,7 @@ export type DeepSeekOptions = {
   systemPrompt: string;
   registry: ToolRegistry;
   stream?: boolean;
+  request?: typeof requestDeepSeek;
   onProgress?: ProgressListener;
 };
 
@@ -49,8 +51,12 @@ export function createDeepSeekDecider(options: DeepSeekOptions): Dependencies["d
       const events = requestDeepSeekEvents(apiKey, body, signal);
       action = await collectDeepSeekAction(events, signal, options.onProgress);
     } else {
-      const payload = await requestDeepSeek(apiKey, { ...body, stream: false }, signal);
-      action = decodeDeepSeekAction(payload);
+      const payload = await (options.request ?? requestDeepSeek)(apiKey, { ...body, stream: false }, signal);
+        try { action = decodeDeepSeekAction(payload); }
+        catch (error) {
+        throw new DependencyError({ source: "model-protocol", kind: "unknown",
+            message: error instanceof Error ? error.message : String(error) });
+        }
     }
 
     // 单次与批次调用共用历史身份检查；模型不能复用先前的 ID。
