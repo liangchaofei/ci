@@ -428,11 +428,27 @@ const result = await executeTool(call);
 
 将 `src/examples/inspect-tools.ts` **整个替换**为以下最终版本：
 
-<<< ../snippets/03/src/examples/inspect-tools.ts
+先不启动循环：对同一个工具入口依次提交四份请求，观察合法请求、未知名称和错误参数分别得到什么结果。数组只是实验输入，真正查找与检查仍由刚实现的执行器负责。
+
+**第 1 步：连接注册表与执行器。** 在 `src/examples/inspect-tools.ts` 中先写入以下内容：
+
+<<< ../snippets/03/src/examples/inspect-tools.ts#tutorial-part-1
+
+registry 保存已注册工具，executeTool 是接下来逐项调用的统一入口。此时只完成组装，还没有执行数组中的请求。
+
+**第 2 步：准备四种请求。** 在 `src/examples/inspect-tools.ts` 末尾追加以下完整代码：
+
+<<< ../snippets/03/src/examples/inspect-tools.ts#tutorial-part-2
+
+先看第一项合法请求，再比较另外三项只改了什么：工具名、path 类型或多余参数。label 只用于中文显示，不属于工具调用协议。
+
+**第 3 步：逐项调用并显示结果。** 在 `src/examples/inspect-tools.ts` 末尾追加以下完整代码：
+
+<<< ../snippets/03/src/examples/inspect-tools.ts#tutorial-part-3
+
+for 每次取一份请求交给 executeTool，result 接住本项结果。错误项显示 code 与 message；下一项仍继续，用来比较同一入口的不同出口。没有创建 State，也没有模型决策。
 
 四份 ToolCall 分别检查正常调用、未注册名称、数字路径和额外字段。它们各有不同 id，但相同工具可以复用同一名称。`Record<string, unknown>` 允许参数值暂时是未知类型，因此 `{ path: 42 }` 能通过 TypeScript 检查；是否符合读取规则，要由运行时 parse 判断。
-
-for 循环每次把 item.call 交给同一 executeTool，等待后打印对应结果。`result.status === "error"` 后才访问错误专有字段。这里仍然只观察执行入口，不构造 State；下一节再观察整条反馈链。
 
 完成本阶段所有文件修改后运行：
 

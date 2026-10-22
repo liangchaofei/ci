@@ -1,3 +1,4 @@
+// #region tutorial-part-1
 import { runAgentLoop } from "../runtime/agent-loop.ts";
 import type { RunEvent } from "../runtime/events.ts";
 import { createToolRegistry } from "../runtime/tool-registry.ts";
@@ -10,6 +11,8 @@ import { printRunEvent } from "./trace-printer.ts";
 const trace: RunEvent[] = [];
 const execute = createToolExecutor(createToolRegistry([readSourceTool, readTestsTool]));
 
+// #endregion tutorial-part-1
+// #region tutorial-part-2
 const result = await runAgentLoop("读取源码和测试片段，诊断空数组报错", {
   decide: scriptedBatchDecide,
   executeTool: execute,
@@ -23,5 +26,8 @@ const result = await runAgentLoop("读取源码和测试片段，诊断空数组
   },
 });
 
+// #endregion tutorial-part-2
+// #region tutorial-part-3
 console.log(`运行结果（outcome）: ${result.outcome.status}`);
 console.log(`轨迹顺序（trace）: ${trace.map((event) => event.type).join(" -> ")}`);
+// #endregion tutorial-part-3

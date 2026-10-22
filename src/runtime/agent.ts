@@ -1,3 +1,5 @@
+import type { ResultSink } from "./result-sink.ts";
+import { ResultSaveError } from "./result-sink.ts";
 import { runAgentLoop } from "./agent-loop.ts";
 import type { RunAgentOptions } from "./agent-loop.ts";
 import { createEventBus } from "./events.ts";
@@ -8,6 +10,7 @@ import type { Dependencies, RunResult, State } from "./types.ts";
 /** 循环配置沿用原接口，运行身份、输入与续运行状态由实例管理。 */
 export type AgentOptions = {
   maxDecisions: number;
+  resultSink?: ResultSink;
   run?: Omit<RunAgentOptions, "signal" | "onEvent" | "inbox" | "initialState">;
 };
 
@@ -82,6 +85,7 @@ export class Agent {
     this.pauseRequested = false;
     this.acceptingInputs = true;
     this.lastResult = undefined;
+    let runId: string | undefined;
 
     try {
       const result = await runAgentLoop(goal, this.dependencies, this.options.maxDecisions, {
@@ -90,11 +94,21 @@ export class Agent {
         initialState,
         inbox: { take: this.inputs.take, isPauseRequested: () => this.pauseRequested },
         onEvent: (event) => {
+          if (event.type === "run-started") runId = event.runId;
           // 结束通知的回调已不能再给本段运行塞输入，避免“收到了却没人处理”。
           if (event.type === "run-ended" || event.type === "run-crashed") this.acceptingInputs = false;
           this.events.emit(event);
         },
       });
+      if (this.options.resultSink) {
+        try {
+          if (!runId) throw new Error("Missing run identity for result persistence");
+          await this.options.resultSink.save(runId, structuredClone(result));
+        } catch (error) {
+          throw new ResultSaveError(error);
+        }
+      }
+
       this.lastResult = structuredClone(result);
       return result;
     } finally {

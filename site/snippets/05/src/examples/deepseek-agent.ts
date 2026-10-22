@@ -1,3 +1,4 @@
+// #region tutorial-part-1
 import { runAgentLoop } from "../runtime/agent-loop.ts";
 import { createToolRegistry } from "../runtime/tool-registry.ts";
 import { createToolExecutor } from "../runtime/tool-executor.ts";
@@ -10,9 +11,13 @@ if (!apiKey) throw new Error("DEEPSEEK_API_KEY is required");
 
 const model = process.env.DEEPSEEK_MODEL?.trim() || "deepseek-flash";
 
+// #endregion tutorial-part-1
+// #region tutorial-part-2
 const registry = createToolRegistry([readSourceTool]);
 const decide = createDeepSeekDecider({ apiKey, model, registry, systemPrompt: diagnosisPrompt });
 
+// #endregion tutorial-part-2
+// #region tutorial-part-3
 const result = await runAgentLoop(
   "请诊断 src/sum.ts 中 sum([]) 失败的原因，并给出最小修复建议。",
   { decide, executeTool: createToolExecutor(registry), validateFinish: hasReadEvidence },
@@ -20,6 +25,8 @@ const result = await runAgentLoop(
   { timeoutMs: 120_000 },
 );
 
+// #endregion tutorial-part-3
+// #region tutorial-part-4
 console.log(`运行结果（outcome）: ${result.outcome.status}`);
 console.log(`决策次数（decisions）: ${result.state.decisions}`);
 console.log(`消息顺序（messages）: ${result.state.messages.map((m) => m.role).join(" -> ")}`);
@@ -28,3 +35,4 @@ if (result.outcome.status === "completed") {
 } else if (result.outcome.status === "failed") {
   console.log(`失败信息（failure）: ${result.outcome.source}: ${result.outcome.reason}`);
 }
+// #endregion tutorial-part-4

@@ -1,3 +1,4 @@
+// #region tutorial-part-1
 import { createEventBus, createRunReporter } from "../runtime/events.ts";
 import type { RunEvent } from "../runtime/events.ts";
 
@@ -11,11 +12,16 @@ const unsubscribe = bus.subscribe((event) => {
 });
 bus.subscribe(() => { throw new Error("Broken display"); });
 
+// #endregion tutorial-part-1
+// #region tutorial-part-2
 const report = createRunReporter(bus.emit);
 report({ type: "run-started" });
 unsubscribe();
 report({ type: "run-ended", outcome: { status: "cancelled" }, decisions: 0, messages: 1 });
 
+// #endregion tutorial-part-2
+// #region tutorial-part-3
 console.log(`已保存通知（trace）: ${trace.map((event) => event.type).join(" -> ")}`);
 console.log(`同一次运行（sameRun）: ${trace[0].runId === trace[1].runId}`);
 console.log(`顺序编号（seq）: ${trace.map((event) => event.seq).join(" -> ")}`);
+// #endregion tutorial-part-3

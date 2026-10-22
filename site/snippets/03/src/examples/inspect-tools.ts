@@ -1,3 +1,4 @@
+// #region tutorial-part-1
 import { createToolRegistry } from "../runtime/tool-registry.ts";
 import { createToolExecutor } from "../runtime/tool-executor.ts";
 import type { ToolCall } from "../runtime/types.ts";
@@ -7,6 +8,8 @@ const registry = createToolRegistry([readSourceTool]);
 const executeTool = createToolExecutor(registry);
 console.log(`已注册工具（tools）: ${registry.names().join(", ")}`);
 
+// #endregion tutorial-part-1
+// #region tutorial-part-2
 const cases: { label: string; call: ToolCall }[] = [
   { label: "合法请求", call: { id: "probe-1", name: "read_source", arguments: { path: "src/sum.ts" } } },
   { label: "未知工具", call: { id: "probe-2", name: "remove_file", arguments: { path: "src/sum.ts" } } },
@@ -14,6 +17,8 @@ const cases: { label: string; call: ToolCall }[] = [
   { label: "多余参数", call: { id: "probe-4", name: "read_source", arguments: { path: "src/sum.ts", force: true } } },
 ];
 
+// #endregion tutorial-part-2
+// #region tutorial-part-3
 for (const item of cases) {
   console.log(`检查场景（case）: ${item.label}`);
   const result = await executeTool(item.call);
@@ -24,3 +29,4 @@ for (const item of cases) {
     console.log(`错误说明（message）: ${result.message}`);
   }
 }
+// #endregion tutorial-part-3

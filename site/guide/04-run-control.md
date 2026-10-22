@@ -442,7 +442,9 @@ node src/examples/inspect-context.ts
 
 ## 第三阶段：在同一个 Runtime 上观察退出位置
 
-接下来新增一个观察入口，复用原来的诊断依赖。为了先跑正常路径，再观察停止，我们分两步构造同一个文件，最后保留一份完整入口。
+接下来新增一个观察入口，复用原来的诊断依赖。先用 normal 跑通旧任务，再每次只改变一个条件：额度不足、决策不返回、调用前取消、工具执行中取消。mode 是实验选择，不是 Runtime 内部状态。
+
+我们分两步构造同一个文件，最后保留一份完整入口。第 10 步先跑通正常与基本停止；第 11 步只替换模式分支，追加迟到结果实验，导入和公共依赖不重写。不要把两份分支代码连续追加。
 
 ### 10. 先观察正常与次数耗尽
 
@@ -536,54 +538,16 @@ normal 完成两次决策，消息为四条。其他三个模式的完整输出�
 
 保留刚才的导入、dependencies、show 与 goal。将 `const mode = ...` 起至文件末尾的整个分支替换为下面连续代码。本步骤只扩展同一个观察入口，不修改 Runtime。
 
-```ts
-const mode = process.argv[2] ?? "normal";
-if (mode === "normal" || mode === "budget") {
-  show(await runAgentLoop(goal, dependencies, mode === "budget" ? 1 : 3));
-} else if (mode === "timeout") {
-  const hanging: Dependencies = {
-    ...dependencies,
-    decide: () => new Promise<never>(() => {}),
-  };
-  show(await runAgentLoop(goal, hanging, 3, { timeoutMs: 30 }));
-} else if (mode === "cancel-before") {
-  const controller = new AbortController();
-  controller.abort();
-  show(await runAgentLoop(goal, dependencies, 3, { signal: controller.signal }));
-} else if (mode === "cancel-execution") {
-  const controller = new AbortController();
-  let deliver: ((result: ToolResult) => void) | undefined;
-  let executionSignal: AbortSignal | undefined;
-  let markStarted: (() => void) | undefined;
-  const started = new Promise<void>((resolve) => { markStarted = resolve; });
-  const delayed: Dependencies = {
-    ...dependencies,
-    executeTool: (_call, signal) => new Promise<ToolResult>((resolve) => {
-      deliver = resolve;
-      executionSignal = signal;
-      console.log("等待位置（stage）: 工具已开始，但还没有结果");
-      markStarted?.();
-    }),
-  };
+先只保留一条观察线：工具发出“已开始” → 外部取消 → 运行返回 → 工具再交出结果 → State 仍无这条迟到结果。用于安排这几个时刻的 Promise 是实验装置，不是又一套 Runtime。
 
-  const running = runAgentLoop(goal, delayed, 3, { signal: controller.signal });
+<details>
+<summary>展开并替换完整模式分支（保留前面的导入与公共组装）</summary>
 
-  // 等到工具确实开始，再取消，才能稳定观察执行中的停止行为。
-  await started;
-  controller.abort();
+<<< ../snippets/04/src/examples/inspect-run-control.ts#tutorial-cases
 
-  const result = await running;
-  show(result);
-  console.log(`工具收到取消（aborted）: ${executionSignal?.aborted}`);
+</details>
 
-  // 故意模拟不配合取消的工具，运行退出以后才交出结果。
-  deliver?.({ callId: sourceCallId, status: "ok", value: sourceCode });
-  await new Promise<void>((resolve) => setTimeout(resolve, 0));
-  console.log(`迟到后消息数（messagesAfterLateResult）: ${result.state.messages.length}`);
-} else {
-  throw new Error(`Unknown mode: ${mode}`);
-}
-```
+运行 cancel-execution 命令前需要完成上面的替换。首次阅读先沿下方三个时刻理解，追查具体装置时再展开；不要求先读懂所有其他模式。
 
 #### 本例要控制的三个时刻
 

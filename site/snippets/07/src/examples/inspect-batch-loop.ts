@@ -1,3 +1,4 @@
+// #region tutorial-part-1
 import { setTimeout as delay } from "node:timers/promises";
 import { runAgentLoop } from "../runtime/agent-loop.ts";
 import { createToolRegistry } from "../runtime/tool-registry.ts";
@@ -14,6 +15,8 @@ if (!["none", "error", "mismatch", "cancel"].includes(fault)) throw new Error("U
 const controller = new AbortController();
 const execute = createToolExecutor(createToolRegistry([readSourceTool, readTestsTool]));
 let executions = 0;
+// #endregion tutorial-part-1
+// #region tutorial-part-2
 const result = await runAgentLoop("读取源码和测试片段，诊断空数组报错", {
   decide: scriptedBatchDecide,
   async executeTool(call, signal) {
@@ -35,6 +38,8 @@ const result = await runAgentLoop("读取源码和测试片段，诊断空数组
   toolExecution: { mode, concurrency: 2, parallelSafeTools: ["read_source", "read_tests"] },
 });
 
+// #endregion tutorial-part-2
+// #region tutorial-part-3
 console.log(`运行结果（outcome）: ${result.outcome.status}`);
 console.log(`决策次数（decisions）: ${result.state.decisions}`);
 console.log(`工具启动次数（executions）: ${executions}`);
@@ -42,3 +47,4 @@ console.log(`消息顺序（messages）: ${result.state.messages.map((m) => m.ro
 const results = result.state.messages.filter((m) => m.role === "tool").map((m) => m.result);
 console.log(`结果关联（callIds）: ${results.map((item) => item.callId).join(" -> ")}`);
 if (result.outcome.status === "failed") console.log(`失败来源（source）: ${result.outcome.source}`);
+// #endregion tutorial-part-3

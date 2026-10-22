@@ -1,3 +1,4 @@
+// #region tutorial-part-1
 import { runAgentLoop } from "../runtime/agent-loop.ts";
 import { createToolExecutor } from "../runtime/tool-executor.ts";
 import { createToolRegistry } from "../runtime/tool-registry.ts";
@@ -18,6 +19,8 @@ const execute = createToolExecutor(createToolRegistry([readSourceTool, readTests
 let decisions = 0;
 let executions = 0;
 
+// #endregion tutorial-part-1
+// #region tutorial-part-2
 const result = await runAgentLoop(contextGoal, {
   async decide(context) {
     decisions += 1;
@@ -39,8 +42,11 @@ const result = await runAgentLoop(contextGoal, {
   toolExecution: { mode: "parallel", concurrency: 2, parallelSafeTools: ["read_source", "read_tests"] },
 });
 
+// #endregion tutorial-part-2
+// #region tutorial-part-3
 console.log(`运行结果（outcome）: ${result.outcome.status}`);
 console.log(`决策次数（decisions）: ${result.state.decisions}`);
 console.log(`工具启动次数（executions）: ${executions}`);
 console.log(`最终历史消息数（stateMessages）: ${result.state.messages.length}`);
 if (result.outcome.status === "context-limit") console.log(`输入限制原因（reason）: ${result.outcome.reason}`);
+// #endregion tutorial-part-3

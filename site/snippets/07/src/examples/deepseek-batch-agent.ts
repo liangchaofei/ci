@@ -1,3 +1,4 @@
+// #region tutorial-part-1
 import { runAgentLoop } from "../runtime/agent-loop.ts";
 import { createToolRegistry } from "../runtime/tool-registry.ts";
 import { createToolExecutor } from "../runtime/tool-executor.ts";
@@ -11,6 +12,8 @@ if (!apiKey) throw new Error("DEEPSEEK_API_KEY is required");
 const model = process.env.DEEPSEEK_MODEL?.trim() || "deepseek-flash";
 const stream = process.argv[2] === "stream";
 
+// #endregion tutorial-part-1
+// #region tutorial-part-2
 const registry = createToolRegistry([readSourceTool, readTestsTool]);
 const decide = createDeepSeekDecider({
   apiKey,
@@ -23,6 +26,8 @@ const decide = createDeepSeekDecider({
   },
 });
 
+// #endregion tutorial-part-2
+// #region tutorial-part-3
 const result = await runAgentLoop("请结合源码与已有测试，诊断 sum([]) 失败并给最小修复建议。", {
   decide,
   executeTool: createToolExecutor(registry),
@@ -36,8 +41,11 @@ const result = await runAgentLoop("请结合源码与已有测试，诊断 sum([
   },
 });
 
+// #endregion tutorial-part-3
+// #region tutorial-part-4
 console.log(`\n运行结果（outcome）: ${result.outcome.status}`);
 console.log(`决策次数（decisions）: ${result.state.decisions}`);
 console.log(`消息顺序（messages）: ${result.state.messages.map((m) => m.role).join(" -> ")}`);
 if (result.outcome.status === "completed") console.log(`最终答案（answer）: ${result.outcome.answer}`);
 if (result.outcome.status === "failed") console.log(`失败信息（failure）: ${result.outcome.reason}`);
+// #endregion tutorial-part-4

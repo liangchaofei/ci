@@ -1,3 +1,4 @@
+// #region tutorial-part-1
 import { groupExchanges } from "../runtime/context-exchanges.ts";
 import { buildDecisionContext } from "../runtime/context.ts";
 import { measureContextBytes } from "../runtime/context-window.ts";
@@ -9,9 +10,13 @@ const state = createContextFixture();
 const mode = process.argv[2] ?? "summary";
 if (!["groups", "summary", "plain", "small", "huge-summary"].includes(mode)) throw new Error("Unknown mode");
 
+// #endregion tutorial-part-1
+// #region tutorial-part-2
 const groups = groupExchanges(state.messages.slice(1));
 console.log(`原历史消息数（stateMessages）: ${state.messages.length}`);
 console.log(`完整组大小（groups）: ${groups.map((group) => group.length).join(" -> ")}`);
+// #endregion tutorial-part-2
+// #region tutorial-part-3
 if (mode !== "groups") {
   const full = buildDecisionContext(state);
   let summarize: ContextWindowOptions["summarize"] = summarizeBuildLog;
@@ -31,3 +36,4 @@ if (mode !== "groups") {
   console.log(`最近结果（callIds）: ${context.messages.filter((m) => m.role === "tool").map((m) => m.result.callId).join(" -> ")}`);
   console.log(`原历史仍保留（stateMessages）: ${state.messages.length}`);
 }
+// #endregion tutorial-part-3

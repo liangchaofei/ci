@@ -484,7 +484,9 @@ export function hasBothReads(messages: readonly Message[]): boolean {
 
 这是**替换已有函数声明行**，不是再追加一份函数。其他导出和旧脚本保留。它仍按调用 ID、工具名、路径、成功状态和固定内容检查两份证据；新脚本直接检查 Context 消息，不需要构造假的 State。
 
-新建 `src/examples/input-scenario.ts`：
+这个脚本仍扮演模型，只需模拟两类情况：没有读取证据时请求两项读取；已有证据时根据新增 user 内容选择预设回答。它用来观察“输入写回是否改变下一轮”，不负责解析任意语言，也不实现排队。
+
+新建 `src/examples/input-scenario.ts`，完整函数保持连续：
 
 <<< ../snippets/10/src/examples/input-scenario.ts
 
@@ -496,7 +498,9 @@ export function hasBothReads(messages: readonly Message[]): boolean {
 
 ### 12. 组装入口，先不启动
 
-新建 `src/examples/inspect-input-agent.ts`，先写入：
+先只用默认 steer 跑一遍：两份读取结果写回 → 排入中文要求 → 循环取走要求并写入 user → 下一轮回答改变。等这条路径清楚后，再看 follow-up、pause、cancel 与 budget；它们不会在同一次运行里全发生。
+
+下面三步依次写进同一个 `src/examples/inspect-input-agent.ts`，合起来就是章末完整文件。新建文件，先写入：
 
 <<< ../snippets/10/src/examples/inspect-input-agent.ts#setup
 
@@ -680,9 +684,25 @@ node --inspect-brk src/examples/inspect-input-agent.ts pause
 
 新建 `src/examples/deepseek-follow-up.ts`：
 
-<<< ../snippets/10/src/examples/deepseek-follow-up.ts
+这个可选入口只把固定脚本换成真实模型，追问仍在同一个明确时刻注入。不需要先读它才能理解本章队列；离线的 steer、follow-up 与 pause 跑通后再接模型。
 
-先创建注册表与真实决策器，再交给 Agent。第一份结果写回时，模拟用户追加一次追问；queued 防止模型多读一次时又重复追加。模型可以分两轮读取，也可以一次提出两项，后续仍由相同完成规则与队列安排。
+**第 1 步：用真实 decide 组装相同实例。** 在 `src/examples/deepseek-follow-up.ts` 中先写入以下内容：
+
+<<< ../snippets/10/src/examples/deepseek-follow-up.ts#tutorial-part-1
+
+两项工具、完成规则与 Agent 沿用已学实现。不同的是 decide 调用模型；这一块只是组装，尚未开始任务。
+
+**第 2 步：在结果写回后排入一次追问。** 在 `src/examples/deepseek-follow-up.ts` 末尾追加以下完整代码：
+
+<<< ../snippets/10/src/examples/deepseek-follow-up.ts#tutorial-part-2
+
+queued 保证只注入一次。followUp 将文字排队，不直接拼 State，也不当场调用模型；当前回答完成后是否继续，仍由本章循环的消费位置决定。显示订阅与输入订阅各做一件事。
+
+**第 3 步：启动并等待包含追问的运行。** 在 `src/examples/deepseek-follow-up.ts` 末尾追加以下完整代码：
+
+<<< ../snippets/10/src/examples/deepseek-follow-up.ts#tutorial-part-3
+
+run 才真正开始。最终结果由 Runtime 返回，不是注入回调手工组装；真实模型的措辞不保证与固定脚本一致，应结合 inputs-recorded 与后续决策检查追问是否进入输入。
 
 这是**真实模型决策、固定读取工具**的组合，不会真的修改文件或执行测试。模型回复和决策次数不保证与脚本逐字、逐次相同；它若没有先取得两份证据，原完成规则会拒绝，不为了得到 completed 降低检查。
 
