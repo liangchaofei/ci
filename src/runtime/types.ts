@@ -10,7 +10,7 @@ export type ToolCall = {
 
 
 /** 可由程序区分的工具失败原因，不依赖错误文字匹配。 */
-export type ToolErrorCode = "unknown-tool" | "invalid-arguments" | "tool-error";
+export type ToolErrorCode = "unknown-tool" | "invalid-arguments" | "tool-error" | "permission-denied";
 
 /** 工具观察始终关联原请求；错误也会进入下一轮输入。 */
 export type ToolResult =

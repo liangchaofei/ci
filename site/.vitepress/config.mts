@@ -35,6 +35,8 @@ export default defineConfig({
           { text: "10 接收新输入与暂停继续", link: "/guide/10-input-pause" },
           { text: "11 会话日志与检查点", link: "/guide/11-session-checkpoints" },
           { text: "12 恢复与未知副作用", link: "/guide/12-safe-recovery" },
+          { text: "13 权限、审批与执行隔离", link: "/guide/13-tool-permissions" },
+          { text: "14 错误分类与安全重试", link: "/guide/14-safe-retries" },
         ],
       },
     ],
