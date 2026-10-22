@@ -1,0 +1,11 @@
+node_modules/
+dist/
+coverage/
+docs/
+site/.vitepress/cache/
+site/.vitepress/dist/
+*.tsbuildinfo
+.env
+.env.*
+!.env.example
+.agent-data/

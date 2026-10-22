@@ -8,3 +8,4 @@ site/.vitepress/dist/
 .env
 .env.*
 !.env.example
+.agent-data/
