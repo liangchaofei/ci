@@ -1,9 +1,9 @@
 ---
-title: 第 05 篇｜接入 DeepSeek 真实模型
+title: 第 06 篇｜接入 DeepSeek 真实模型
 description: 先完成一次真实 API 调用，再将消息、工具说明和模型响应连接到已有 Runtime，完成非流式的多轮工具调用。
 ---
 
-# 第 05 篇：让真实模型决定下一步
+# 第 06 篇：让真实模型决定下一步
 
 前四篇里，scriptedDecide 遇到 user 就提出读取，看到预期源码就给出固定答案。循环、工具检查和停止控制都在运行，但下一步已经被脚本写好。本篇把这个位置换成 DeepSeek 官方 API：模型接收本轮消息与工具说明，决定请求工具还是回答。
 
@@ -13,7 +13,7 @@ description: 先完成一次真实 API 调用，再将消息、工具说明和�
 
 ## 推荐分支与运行前提
 
-从第 4 篇已验证、已提交的本地版本创建：
+从第 5 篇已验证、已提交的本地版本创建：
 
 ```bash
 git switch -c codex/chapter-05-deepseek
@@ -52,7 +52,7 @@ export const sum = (numbers: number[]) => numbers.reduce((a, b) => a + b);
 
 因此需要一层**适配器**：把 Runtime 的输入转成服务接受的格式，再把服务响应检查、转换为 Runtime 接受的动作。它连接两种约定；循环继续只处理 Action，不需要认识 DeepSeek 的 choices 字段。
 
-[![第 5 篇数据流：Context 经适配器转为 DeepSeek 消息，模型返回工具请求，解码成 Action；原循环执行、写回，再准备下一轮模型输入](/diagrams/deepseek-adapter-flow.svg)](/diagrams/deepseek-adapter-flow.svg)
+[![第 6 篇数据流：Context 经适配器转为 DeepSeek 消息，模型返回工具请求，解码成 Action；原循环执行、写回，再准备下一轮模型输入](/diagrams/deepseek-adapter-flow.svg)](/diagrams/deepseek-adapter-flow.svg)
 
 点击图片可放大。蓝色部分是本章新增的适配代码；绿色部分沿用已有 Runtime。箭头表示传递数据，不表示每个模块都能修改 State。
 
@@ -94,7 +94,7 @@ export const sum = (numbers: number[]) => numbers.reduce((a, b) => a + b);
 | `src/examples/deepseek-scenario.ts` | 新增 | 提供诊断提示词与读取证据检查 |
 | `src/examples/deepseek-agent.ts` | 新增 | 组装已有 Runtime，运行真实模型诊断 |
 
-`agent-loop.ts`、Context 构造、工具执行器与 RunControl 沿用第 4 篇。下面按三个阶段实现：先联网，再接数据格式，最后运行完整任务。每阶段都复用前面写好的代码。
+`agent-loop.ts`、Context 构造、工具执行器与 RunControl 沿用第 5 篇。下面按三个阶段实现：先联网，再接数据格式，最后运行完整任务。每阶段都复用前面写好的代码。
 
 ## 第一阶段：先取得一次真实响应
 
@@ -188,7 +188,7 @@ apiKey 与 model 只是从 process.env 取配置；`createRunControl` 创建的 
 
 读下面这条调用时，先看传给 wait 的函数：`(signal) => requestDeepSeek(...)`。control 会先检查这次运行能否开始，再调用这个函数；函数取得 signal 后才发网络请求。外面的 await 等到 requestDeepSeek 返回的 JSON，payload 接住它，最后打印出来。`finally` 无论成功还是失败都会清理计时器。
 
-这条连接沿用第 4 篇机制：
+这条连接沿用第 5 篇机制：
 
 ```text
 control.wait
@@ -267,7 +267,7 @@ content 是模型附带文字；call 才是要执行的请求，源码不在这�
 
 #### 为什么工具需要两种信息
 
-第 3 篇的工具已经知道怎么检查与执行，但这些是本地函数。远程模型不能通过一个 JavaScript 函数引用知道该传什么参数。因此现在补 description 和 parameters，让工具同时保存“给模型看的说明”和“本地执行的实现”：
+第 4 篇的工具已经知道怎么检查与执行，但这些是本地函数。远程模型不能通过一个 JavaScript 函数引用知道该传什么参数。因此现在补 description 和 parameters，让工具同时保存“给模型看的说明”和“本地执行的实现”：
 
 | 字段 | 谁使用 | read_source 中的作用 |
 |---|---|---|
@@ -901,7 +901,7 @@ node src/examples/inspect-context.ts
 
 整个文件从环境配置开始，建立注册表与真实 decide，再把 decide、统一执行器和应用完成规则交给 runAgentLoop；最终接住 RunResult 并显示。这就是使用当前 Runtime 发起一次任务的位置，不负责实现 HTTP、协议检查或 State 更新。
 
-需要追调用时，从这个入口进入循环，再分别进入对应依赖；不能因为它导入了所有模块，就把各模块逻辑也写回这里。第 5 篇替换的是决策来源，原反馈链继续复用。
+需要追调用时，从这个入口进入循环，再分别进入对应依赖；不能因为它导入了所有模块，就把各模块逻辑也写回这里。第 6 篇替换的是决策来源，原反馈链继续复用。
 
 ## 怎样调试：一次只找一个边界
 
@@ -975,7 +975,7 @@ JS
 
 ## 完整最终文件
 
-以下只列本篇新增或修改文件。循环、RunControl、Context、执行器保持第 4 篇实现；不要用真实模型的自由回答替换旧脚本的固定诊断常量。
+以下只列本篇新增或修改文件。循环、RunControl、Context、执行器保持第 5 篇实现；不要用真实模型的自由回答替换旧脚本的固定诊断常量。
 
 ### .env.example
 
@@ -1049,7 +1049,7 @@ git diff --stat
 git add -- .env.example src/adapters/deepseek/http.ts src/adapters/deepseek/protocol.ts src/adapters/deepseek/decider.ts src/runtime/types.ts src/runtime/tool.ts src/runtime/tool-registry.ts src/examples/read-source-tool.ts src/examples/ask-deepseek.ts src/examples/deepseek-scenario.ts src/examples/deepseek-agent.ts site/
 git diff --cached --stat
 git commit -F - <<'COMMIT'
-第 05 篇：接入 DeepSeek 真实模型决策
+第 06 篇：接入 DeepSeek 真实模型决策
 
 在原有循环、状态和停止控制上连接 DeepSeek 非思考模式，保留模型与执行器的职责边界。
 

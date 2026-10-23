@@ -1,11 +1,11 @@
 ---
-title: 第 01 篇｜第一条反馈闭环
+title: 第 02 篇｜第一条反馈闭环
 description: 先运行请求、执行和反馈，再从固定流程推导通用循环，逐步补上状态保护与退出处理。
 ---
 
-# 第 01 篇：让上一次执行结果进入下一次决策
+# 第 02 篇：让上一次执行结果进入下一次决策
 
-本篇面向没有 Agent 基础、但能阅读函数、对象和数组的读者。从[第 00 篇](/guide/00-project-foundation)继续，当前工程只有配置与环境检查，Runtime 核心还是空的。
+本篇面向没有 Agent 基础、但能阅读函数、对象和数组的读者。从[第 01 篇](/guide/00-project-foundation)继续，当前工程只有配置与环境检查，Runtime 核心还是空的。
 
 ## 读完这篇，你会得到什么
 
@@ -20,7 +20,7 @@ description: 先运行请求、执行和反馈，再从固定流程推导通用�
 
 ## 本篇推荐分支
 
-推荐分支名：`codex/chapter-01-feedback-loop`。从第 00 篇已经完成检查并提交的本地版本创建：
+推荐分支名：`codex/chapter-01-feedback-loop`。从第 01 篇已经完成检查并提交的本地版本创建：
 
 ```bash
 git switch -c codex/chapter-01-feedback-loop
@@ -58,7 +58,7 @@ git switch -c codex/chapter-01-feedback-loop
 
 本章从模拟场景开始，是为了让每次运行都产生可对照的过程，暂时减少模型响应差异和外部环境的干扰。后续再接入真实模型与工具。两类代码的关系是：**场景提供本次任务的能力，Runtime 安排这些能力怎样协作。**
 
-暂不新增单测，也不改第 00 篇配置。所有命令都在仓库根目录执行：
+暂不新增单测，也不改第 01 篇配置。所有命令都在仓库根目录执行：
 
 ```bash
 mkdir -p src/runtime src/examples
@@ -86,7 +86,7 @@ export const sum = (numbers: number[]) => numbers.reduce((a, b) => a + b);
 
 先沿正常路径从上往下看：两次决策之间，夹着工具执行与结果写回。图中同步标出了消息和计数的变化：
 
-[![第 1 篇反馈流程：读取请求、执行返回、结果写回、第二次决策与完成验证](/diagrams/feedback-writeback.svg)](/diagrams/feedback-writeback.svg)
+[![第 2 篇反馈流程：读取请求、执行返回、结果写回、第二次决策与完成验证](/diagrams/feedback-writeback.svg)](/diagrams/feedback-writeback.svg)
 
 点击图片可单独打开查看。
 
@@ -750,7 +750,7 @@ node src/examples/first-loop.ts
 
 日志能帮助定位数据流，但只看到角色列表，不能证明源码内容和调用 ID 正确，也不能证明真正读取过磁盘。调试时还要查看消息里的具体字段，下面的断点与故障实验会检查这些位置。
 
-`npm run check` 也可以运行，但其中现有测试只检查第 00 篇环境，不验证本篇闭环。本篇行为证据来自上述入口轨迹和故障实验。
+`npm run check` 也可以运行，但其中现有测试只检查第 01 篇环境，不验证本篇闭环。本篇行为证据来自上述入口轨迹和故障实验。
 
 ## 模拟能力以后怎样换成真实能力
 
@@ -791,7 +791,7 @@ node --inspect-brk=127.0.0.1:9229 src/examples/first-loop.ts
 
 | 现象 | 优先检查 |
 |---|---|
-| `.ts` 导入失败 | 文件是否在本阶段要求的位置、是否保留 `.ts` 后缀、是否满足第 00 篇环境要求 |
+| `.ts` 导入失败 | 文件是否在本阶段要求的位置、是否保留 `.ts` 后缀、是否满足第 01 篇环境要求 |
 | 没有执行日志 | 决策方是否真的返回 tool 动作，是否还在运行前一阶段入口 |
 | 执行过但第二次无 tool | 回写语句是否更新变量 state，下一次是否使用最新状态 |
 | 调用 ID 不匹配 | 比较请求 id 和结果 callId，不能靠改消息角色掩盖问题 |
@@ -915,7 +915,7 @@ git status --short
 ```bash
 git add -- src/runtime/types.ts src/runtime/agent-loop.ts src/examples/diagnosis-scenario.ts src/examples/first-loop.ts site/
 git commit -F - <<'COMMIT'
-第 01 篇：实现智能体反馈循环
+第 02 篇：实现智能体反馈循环
 
 将决策、工具执行与结果写回组织为可复用的运行流程，
 使下一次决策能够使用上一次执行得到的观察。
@@ -931,6 +931,6 @@ git push -u origin codex/chapter-01-feedback-loop
 
 `git add` 选择本次要保存的文件，`git commit` 生成本地版本，`git push` 将该分支上传到 GitHub。提交信息采用中文标题加详细正文：第一行概括变化，空行之后说明目的、实现范围与验证。填写自己实际完成的检查，不把尚未运行的验证写成已通过。
 
-`-F -` 从标准输入读取正文；复制时保留 `<<'COMMIT'` 与最后独占一行、不缩进的 `COMMIT`，中间的换行会原样进入提交信息。`-u` 建立远程关联，后续在这个分支提交后可直接执行 `git push`。命令默认第 00 篇已提交、origin 已配置；若使用其他分支名，修改最后一个参数。
+`-F -` 从标准输入读取正文；复制时保留 `<<'COMMIT'` 与最后独占一行、不缩进的 `COMMIT`，中间的换行会原样进入提交信息。`-u` 建立远程关联，后续在这个分支提交后可直接执行 `git push`。命令默认第 01 篇已提交、origin 已配置；若使用其他分支名，修改最后一个参数。
 
 命令中的四个源码路径对应本篇最终文件清单，中间入口版本已经被最终入口替换。site/ 包含教程、参考代码与导航；推送后将 Pull Request 合并到 main，网站才会自动部署。

@@ -7,7 +7,7 @@ hero:
   tagline: 先看全局，再动手。每章只增加一项可验证能力：模型提出动作，Runtime 受控执行，观察进入下一轮，任务有证据地结束。
   actions:
     - theme: brand
-      text: 从第 00 篇开始
+      text: 从第 01 篇开始
       link: /guide/00-project-foundation
     - theme: alt
       text: 查看完整路线

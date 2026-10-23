@@ -1,9 +1,9 @@
 ---
-title: 第 08 篇｜实现模型输入选择
+title: 第 09 篇｜实现模型输入选择
 description: 保留完整 State，从历史中选择成组消息，加入可核对的摘要，并在输入装不下时明确退出。
 ---
 
-# 第 08 篇：实现模型输入选择
+# 第 09 篇：实现模型输入选择
 
 本篇实现的功能叫**模型输入选择**：每次询问模型前，决定这次带哪些历史内容。它发生在 Runtime 内部，每轮调用 decide 之前。
 
@@ -24,7 +24,7 @@ description: 保留完整 State，从历史中选择成组消息，加入可核�
    ↓
 State：保存到目前为止的完整运行历史
    ↓
-【第 8 篇：准备这一次的模型输入】
+【第 9 篇：准备这一次的模型输入】
    选择保留的原文，必要时为较早记录提取摘要
    检查必须保留的内容能否装下
    ↓
@@ -103,7 +103,7 @@ State 已经保存 6 条消息：
 
 ## 推荐分支与前置版本
 
-从已完成并提交的第 7 篇版本创建：
+从已完成并提交的第 8 篇版本创建：
 
 ```bash
 git switch -c codex/chapter-08-context-window
@@ -220,7 +220,7 @@ groups = [
 | pending | 当前这组还欠哪些调用结果 |
 | usedIds | 之前读过的所有调用 ID，用于查重 |
 
-这里复用的 toolCallsOf 来自第 7 篇：从 tool 动作取出单项 call，从 tools 动作取出 calls；没有工具请求时返回空数组。它只把调用取出来，不会执行。validateToolBatch 则检查这些请求的身份和形状，以及有没有重复 ID；不是再次读取文件。
+这里复用的 toolCallsOf 来自第 8 篇：从 tool 动作取出单项 call，从 tools 动作取出 calls；没有工具请求时返回空数组。它只把调用取出来，不会执行。validateToolBatch 则检查这些请求的身份和形状，以及有没有重复 ID；不是再次读取文件。
 
 #### 第一组：从日志请求走到日志结果
 
@@ -436,7 +436,7 @@ import { diagnosis } from "./diagnosis-fixture.ts";
 
 摘要器不能凭空写“日志中发现了错误”。它先从 assistant 请求确认哪些 ID 是读取 build.log，再找这些 ID 对应的成功结果。结果 value 必须是对象，而且明确给出 exitCode=1、failingCase=sum([])，才返回这段事实摘要。
 
-这里成功的是“读到了日志”，日志里的构建退出码仍为 1，两者没有矛盾。第 7 篇提供的完成检查核对源码与测试证据，也不会因为存在日志摘要就把修复当成成功。
+这里成功的是“读到了日志”，日志里的构建退出码仍为 1，两者没有矛盾。第 8 篇提供的完成检查核对源码与测试证据，也不会因为存在日志摘要就把修复当成成功。
 
 output 的长原文不出现在摘要中，所以省了空间；失败用例与退出码仍保留。找不到可核对事实就返回空字符串。这只是本场景的结构化提取，不是通用的语义压缩，也没有调用另一个模型。
 
@@ -577,7 +577,7 @@ context 是输入选择配置，toolExecution 是工具调度配置。两者都�
 | 两份读取写回后，第 3 轮前 | 6 | 原始任务、最新三条消息，另带日志摘要 | decide 给诊断 |
 | finish 记录后 | 7 | 不再构造下一轮 | 完成检查通过后返回 |
 
-后面的工具调用、整批写回和次数更新继续使用第 7 篇代码。这次只是把“复制全量消息”换成“按配置准备本轮输入”，不是另写一条短历史循环。
+后面的工具调用、整批写回和次数更新继续使用第 8 篇代码。这次只是把“复制全量消息”换成“按配置准备本轮输入”，不是另写一条短历史循环。
 
 #### 为什么输入准备单独放一个 try
 
@@ -803,7 +803,7 @@ Pi Coding Agent 的 [findCutPoint](https://github.com/earendil-works/pi/blob/8ef
 
 ## 完整最终文件
 
-以下为本章新增或修改的 11 个文件；其他第 7 篇代码保留。前面的分阶段修改用于理解和实现，这里供核对最终内容。
+以下为本章新增或修改的 11 个文件；其他第 8 篇代码保留。前面的分阶段修改用于理解和实现，这里供核对最终内容。
 
 ### src/runtime/context-exchanges.ts
 
@@ -866,7 +866,7 @@ node src/examples/inspect-stream.ts cut
 DOCS_BASE=/ci/ npm run site:build
 ```
 
-预期：正常三轮完成，State 保留完整历史，Context 按规则变短；输入限制发生在下一次模型调用前；第 7 篇批次和第 6 篇断流行为仍成立；网站构建成功。真实模型入口如已配置，可另行验证，不把离线运行写成已调用真实服务。
+预期：正常三轮完成，State 保留完整历史，Context 按规则变短；输入限制发生在下一次模型调用前；第 8 篇批次和第 7 篇断流行为仍成立；网站构建成功。真实模型入口如已配置，可另行验证，不把离线运行写成已调用真实服务。
 
 提交要包含两部分：src 下本章改动，以及 site 中的教程、参考代码、配图和导航。网站采用 `git add -- site/`，让共享导航与所有已完成的网站更新一起进入提交；只提交 src 不会把电脑上的新教程上传到 GitHub。
 
@@ -878,7 +878,7 @@ git status --short
 git add -- src/runtime/context-exchanges.ts src/examples/context-fixture.ts src/examples/inspect-context-window.ts src/runtime/types.ts src/runtime/context-window.ts src/runtime/context.ts src/examples/context-scenario.ts src/runtime/agent-loop.ts src/adapters/deepseek/protocol.ts src/examples/inspect-windowed-loop.ts src/examples/deepseek-batch-agent.ts site/
 git diff --cached --stat
 git commit -F - <<'COMMIT'
-第 08 篇：按完整消息组选择下一轮输入
+第 09 篇：按完整消息组选择下一轮输入
 
 保留完整运行历史，为每轮决策选择原始任务与近期完整请求和结果，并对省略的构建日志提取事实摘要。
 

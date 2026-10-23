@@ -12,7 +12,7 @@ export function createContextBuilder(options?: ContextWindowOptions): (state: Re
   };
 }
 
-/** 保留第 2 篇的直接调用入口，仍然返回独立副本。 */
+/** 保留第 3 篇的直接调用入口，仍然返回独立副本。 */
 export function buildDecisionContext(state: Readonly<State>, options?: ContextWindowOptions): DecisionContext {
   return createContextBuilder(options)(state);
 }

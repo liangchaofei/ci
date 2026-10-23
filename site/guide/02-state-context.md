@@ -1,11 +1,11 @@
 ---
-title: 第 02 篇｜从运行状态准备本轮输入
+title: 第 03 篇｜从运行状态准备本轮输入
 description: 区分 State 与 Context，独立实现输入构造模块，让每次决策收到最新消息，而不是整份运行状态。
 ---
 
-# 第 02 篇：程序保存什么，决策方看到什么
+# 第 03 篇：程序保存什么，决策方看到什么
 
-第 1 篇已经能完成一次模拟诊断：提出读取请求，执行读取，保存源码，再提出答案。本篇继续使用这些代码，不重写循环，也不接入真实模型。
+第 2 篇已经能完成一次模拟诊断：提出读取请求，执行读取，保存源码，再提出答案。本篇继续使用这些代码，不重写循环，也不接入真实模型。
 
 ## 读完这篇，你会得到什么
 
@@ -14,19 +14,19 @@ description: 区分 State 与 Context，独立实现输入构造模块，让每�
 - **要动手完成的内容：** 新建 context.ts 准备消息输入，先观察读取前后的两份 Context，再将它接回原有循环。
 - **在整个 Runtime 中的位置：** 本篇补上“状态更新之后、请求决策之前”的输入准备步骤，为后续真实模型适配建立边界。
 
-完成后，应能分别定位“结果没保存”和“结果保存了但没有用于本轮输入”这两类错误。本篇仍使用第 1 篇的模拟诊断，不接入真实模型，也暂不做消息裁剪与摘要。
+完成后，应能分别定位“结果没保存”和“结果保存了但没有用于本轮输入”这两类错误。本篇仍使用第 2 篇的模拟诊断，不接入真实模型，也暂不做消息裁剪与摘要。
 
-需要回看第 1 篇时，先找工具结果追加到 state.messages 和下一次调用 decide 的两处位置；本篇的新模块连接这两处。正文会解释所需知识，外部链接供查证。
+需要回看第 2 篇时，先找工具结果追加到 state.messages 和下一次调用 decide 的两处位置；本篇的新模块连接这两处。正文会解释所需知识，外部链接供查证。
 
 ## 本篇推荐分支
 
-推荐分支名：`codex/chapter-02-state-context`。从第 1 篇已验证并提交的本地版本创建：
+推荐分支名：`codex/chapter-02-state-context`。从第 2 篇已验证并提交的本地版本创建：
 
 ```bash
 git switch -c codex/chapter-02-state-context
 ```
 
-若分支已存在，用 `git switch codex/chapter-02-state-context` 返回。本章实现依赖第 1 篇的四个源码文件；章末提交同时包含网站更新。下面命令都在仓库根目录执行。
+若分支已存在，用 `git switch codex/chapter-02-state-context` 返回。本章实现依赖第 2 篇的四个源码文件；章末提交同时包含网站更新。下面命令都在仓库根目录执行。
 
 ## 先把 Runtime 放回整条运行链
 
@@ -34,17 +34,17 @@ git switch -c codex/chapter-02-state-context
 
 先看当前几个模块怎样协作。绿色框是 Runtime 持有的职责，右侧函数由场景提供，底部灰色条列的是后续能力：
 
-[![第 2 篇当前架构：应用传入目标和依赖，Runtime 持有状态并准备输入，场景函数提供具体能力](/diagrams/runtime-responsibilities.svg)](/diagrams/runtime-responsibilities.svg)
+[![第 3 篇当前架构：应用传入目标和依赖，Runtime 持有状态并准备输入，场景函数提供具体能力](/diagrams/runtime-responsibilities.svg)](/diagrams/runtime-responsibilities.svg)
 
 点击图片可单独打开查看。
 
-模型负责依据收到的信息提出下一步；工具负责实际读取、查询等操作；Runtime 负责把它们按明确规则组织起来。第 1 篇的脚本暂时代替模型，读取函数也返回固定源码，但调用、记录与退出已经由真实代码完成。
+模型负责依据收到的信息提出下一步；工具负责实际读取、查询等操作；Runtime 负责把它们按明确规则组织起来。第 2 篇的脚本暂时代替模型，读取函数也返回固定源码，但调用、记录与退出已经由真实代码完成。
 
 完整 Runtime 的其他部分以后会接入这条链：
 
 | 部分 | 负责的问题 | 当前进度 |
 |---|---|---|
-| 循环与运行状态 | 谁安排下一步，执行结果保存在哪里，何时结束 | 第 1 篇已实现最小版本 |
+| 循环与运行状态 | 谁安排下一步，执行结果保存在哪里，何时结束 | 第 2 篇已实现最小版本 |
 | 输入准备 | 从当前状态取哪些信息交给本轮决策 | 本篇实现 |
 | 模型适配 | 怎样把内部数据变成模型接口请求 | 后续接入真实模型 |
 | 工具执行入口 | 怎样找到工具、检查参数并关联结果 | 目前是一个模拟读取函数，后续扩展 |
@@ -55,7 +55,7 @@ git switch -c codex/chapter-02-state-context
 
 ## 为什么不继续把 State 整个传过去
 
-第 1 篇调用 decide 时传入状态副本。这样可以演示反馈，但这个参数同时包含了两类信息：
+第 2 篇调用 decide 时传入状态副本。这样可以演示反馈，但这个参数同时包含了两类信息：
 
 | State 中的信息 | 谁需要它 | 本篇怎样处理 |
 |---|---|---|
@@ -148,7 +148,7 @@ firstContext、secondContext 也是变量名，观察入口用它们保留两次
 | `src/examples/inspect-context.ts` | 新建 | 先观察读取前后输入怎样改变 |
 | `src/examples/diagnosis-scenario.ts` | 修改导入和 scriptedDecide | 决策器只使用 Context |
 | `src/runtime/agent-loop.ts` | 新增导入，修改决策调用处 | 每轮从最新 State 构造 Context |
-| `src/examples/first-loop.ts` | 保留第 1 篇最终版本 | 继续作为集成入口，不需要重写 |
+| `src/examples/first-loop.ts` | 保留第 2 篇最终版本 | 继续作为集成入口，不需要重写 |
 
 context.ts 不发请求、不执行工具、不更新运行状态，只准备输入。输入规则有自己的变化原因，因此单独成模块；循环调用它即可，不需要逐渐把所有处理都写进 agent-loop.ts。
 
@@ -162,7 +162,7 @@ context.ts 不发请求、不执行工具、不更新运行状态，只准备输
 
 <<< @/snippets/02/src/runtime/types.ts#context{ts:line-numbers} [src/runtime/types.ts · 新增类型]
 
-它只有 messages。目标并没有丢失，因为第 1 篇已经把目标放进首条 user 消息；此前的请求与源码也分别在 assistant、tool 消息里。
+它只有 messages。目标并没有丢失，因为第 2 篇已经把目标放进首条 user 消息；此前的请求与源码也分别在 assistant、tool 消息里。
 
 本篇复用已有 Message 类型，是因为消息内容暂时没有转换，只需要把 State 的控制字段与输入分开。以后要改变消息格式时，再在明确的边界转换，不必现在复制一套内容相同的消息类型。
 
@@ -210,7 +210,7 @@ Object.keys 读取对象实际存在的顶层字段，join 将字段名称连成
 
 <<< @/snippets/02/src/examples/inspect-context.ts#feedback{ts:line-numbers} [src/examples/inspect-context.ts · 读取后]
 
-这里复用第 1 篇的请求创建和模拟读取。工具返回后，手动将请求与结果按先后顺序放入 State，记为一次决策，再构造 secondContext。这段代码只用来观察数据变化，不是另写一套 Runtime。
+这里复用第 2 篇的请求创建和模拟读取。工具返回后，手动将请求与结果按先后顺序放入 State，记为一次决策，再构造 secondContext。这段代码只用来观察数据变化，不是另写一套 Runtime。
 
 执行完成后，同一条反馈在两处以不同用途存在：state.messages 保存运行记录，secondContext.messages 是为本次查看复制的消息。第二份 Context 的具体内容是：
 
@@ -306,7 +306,7 @@ DecisionContext 是决策器的新参数类型；State 仍供文件末尾的完�
 
 <<< @/snippets/02/src/examples/diagnosis-scenario.ts#decision{ts:line-numbers} [src/examples/diagnosis-scenario.ts · 替换决策部分]
 
-第一次 context.messages 仍只有 user，因此请求读取；第二次含成功的源码结果，因此提出 finish。分支依据与第 1 篇相同，变化的是信息入口：不再从整份 State 取消息，而从本轮 Context 取消息。
+第一次 context.messages 仍只有 user，因此请求读取；第二次含成功的源码结果，因此提出 finish。分支依据与第 2 篇相同，变化的是信息入口：不再从整份 State 取消息，而从本轮 Context 取消息。
 
 日志去掉了原先通过 state.decisions 计算的序号。脚本不该为了打印序号继续索要 Runtime 控制字段；当前通过消息角色观察输入即可，最终次数仍由集成入口从返回状态中打印。以后统一事件与轨迹会提供更合适的运行标识。
 
@@ -341,7 +341,7 @@ try {
 
 真正更新状态的地方仍在下方：决策返回后追加 assistant 消息，工具返回后追加 tool 消息。Context 不需要再存进 State，因为它能从已有消息重新生成；本篇没有新增 `state.context`。
 
-关键是构造位置在 while 内、decide 之前。若只在进入循环前准备一次，State 虽然更新，后面的决策仍只拿到旧输入。第 1 篇解决“结果有没有保存”，本篇进一步保证“保存后的结果有没有用于本次输入”。
+关键是构造位置在 while 内、decide 之前。若只在进入循环前准备一次，State 虽然更新，后面的决策仍只拿到旧输入。第 2 篇解决“结果有没有保存”，本篇进一步保证“保存后的结果有没有用于本次输入”。
 
 buildDecisionContext 已经复制消息，所以这里不再把整份 snapshot(state) 传给 decide。返回动作仍复制后再留存，防止外部函数后续修改同一对象。完成规则处的 snapshot(state) 保留，那是另一条状态访问路径。
 
@@ -353,7 +353,7 @@ agent-loop.ts 继续拥有 State，负责记录动作、工具结果和退出；
 
 所以本篇没有把状态管理搬到 context.ts。它只是把“交给决策方哪些数据、怎样取得独立副本”从循环中抽成一个有明确输入输出的模块；完成验证仍从循环取得 State 副本。
 
-### 2.4 继续运行第 1 篇的集成入口
+### 2.4 继续运行第 2 篇的集成入口
 
 `src/examples/first-loop.ts` 的函数组装方式不变，不用修改。runAgentLoop 仍接收目标、依赖和次数上限，内部调用决策方时才使用新 Context。
 
@@ -384,7 +384,7 @@ node src/examples/first-loop.ts
 node --inspect-brk=127.0.0.1:9229 src/examples/first-loop.ts
 ```
 
-按第 1 篇的方法在 Chrome 的 `chrome://inspect` 连接 Node 进程。以下断点先按正常路径观察，不用同时追踪全部异常分支。
+按第 2 篇的方法在 Chrome 的 `chrome://inspect` 连接 Node 进程。以下断点先按正常路径观察，不用同时追踪全部异常分支。
 
 | 断点 | 观察什么 | 本例应看到什么 |
 |---|---|---|
@@ -490,7 +490,7 @@ Pi 的类型说明还要求将内部消息转换为模型兼容格式，不可�
 
 ## 完整文件：用于核对
 
-下面五个文件是本章新增或修改后的最终内容；与正文小步骤来自同一份参考实现。first-loop.ts 沿用第 1 篇最终版本。不要把阶段 1 的旧 Dependencies 或旧 scriptedDecide 混入最终版本。
+下面五个文件是本章新增或修改后的最终内容；与正文小步骤来自同一份参考实现。first-loop.ts 沿用第 2 篇最终版本。不要把阶段 1 的旧 Dependencies 或旧 scriptedDecide 混入最终版本。
 
 ### `src/runtime/types.ts`
 
@@ -532,7 +532,7 @@ git diff --cached --stat
 ```bash
 git add -- src/runtime/types.ts src/runtime/context.ts src/runtime/agent-loop.ts src/examples/diagnosis-scenario.ts src/examples/inspect-context.ts site/
 git commit -F - <<'COMMIT'
-第 02 篇：分离运行状态与决策上下文
+第 03 篇：分离运行状态与决策上下文
 
 在每次决策前从最新状态构造输入，
 保留目标、动作和工具结果，将控制计数留在运行时。

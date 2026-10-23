@@ -1,11 +1,11 @@
 ---
-title: 第 04 篇｜停止、取消与时间边界
+title: 第 05 篇｜停止、取消与时间边界
 description: 区分次数耗尽、运行超时和外部取消，控制异步等待，将取消信号传给工具，并阻止迟到结果进入状态。
 ---
 
-# 第 04 篇：任务等不回来，怎样结束这次运行
+# 第 05 篇：任务等不回来，怎样结束这次运行
 
-仍然是诊断 `sum([])` 的任务。第 3 篇已经能找到 read_source、检查参数并取得源码。如果这次读取一直没有返回，循环就停在 await 上：即使 maxDecisions 还有余额，也无法开始下一次决策，更到不了次数耗尽的出口。
+仍然是诊断 `sum([])` 的任务。第 4 篇已经能找到 read_source、检查参数并取得源码。如果这次读取一直没有返回，循环就停在 await 上：即使 maxDecisions 还有余额，也无法开始下一次决策，更到不了次数耗尽的出口。
 
 本篇让这次运行能因**等待超时**或**外部取消**而结束，并保留停止前已经确认的记录。你会先独立控制一个不返回的 Promise，再接回现有 Runtime，观察三种不同结果：次数耗尽、超时、取消。最关键的判断是：**运行已经退出以后，迟到的工具结果还能不能改变状态？**
 
@@ -13,7 +13,7 @@ description: 区分次数耗尽、运行超时和外部取消，控制异步等�
 
 ## 本篇推荐分支
 
-从第 3 篇已验证并提交的本地版本创建：
+从第 4 篇已验证并提交的本地版本创建：
 
 ```bash
 git switch -c codex/chapter-04-run-control
@@ -32,13 +32,13 @@ git switch -c codex/chapter-04-run-control
 | 调用方主动请求停止 | cancelled，外部取消 | 停止前已确认的记录 |
 | 工具正常返回 error | 仍作为工具观察进入下一轮 | 带调用 ID 的失败结果 |
 
-最后一种仍使用第 3 篇的规则。工具报告错误，不代表用户取消，也不能仅凭错误文字含有 timeout 就宣告 Runtime 超时。本篇用本次控制器实际记录的停止原因分类。
+最后一种仍使用第 4 篇的规则。工具报告错误，不代表用户取消，也不能仅凭错误文字含有 timeout 就宣告 Runtime 超时。本篇用本次控制器实际记录的停止原因分类。
 
 **次数上限控制“还允许开始几次决策”，时间上限控制“这次运行还允许持续多久”。** 一次决策都没结束时，次数计数仍是 0；它完全可能在此超时。
 
 ### 在整个 Runtime 中的位置
 
-[![第 4 篇控制关系：外部取消或运行计时器触发内部取消信号；等待入口停止等待，循环在记录前核对状态，工具可收到同一个信号](/diagrams/run-control-boundaries.svg)](/diagrams/run-control-boundaries.svg)
+[![第 5 篇控制关系：外部取消或运行计时器触发内部取消信号；等待入口停止等待，循环在记录前核对状态，工具可收到同一个信号](/diagrams/run-control-boundaries.svg)](/diagrams/run-control-boundaries.svg)
 
 点击图片可单独打开。上半部分表示停止信号从哪里来，下半部分表示每轮运行中的两个等待位置；完成验证与预算出口省略。
 
@@ -74,7 +74,7 @@ git switch -c codex/chapter-04-run-control
 
 ## 第一阶段：先控制一次等待
 
-先完成这个阶段，再修改任何已有接口。它只新增两个文件，不影响第 3 篇入口。
+先完成这个阶段，再修改任何已有接口。它只新增两个文件，不影响第 4 篇入口。
 
 ### 1. 定义运行配置与停止结果
 
@@ -106,7 +106,7 @@ RunControl 的四项操作接下来才实现：wait 负责一次等待，check �
 
 waitForResult 接收“启动一次工作的方法”，返回一个可供调用方等待的 Promise。工作可能是请求决策，也可能是执行读取。**工作返回时，调用方取得结果；工作尚未返回但运行被取消时，调用方也能结束等待。**
 
-先借用第 3 篇的读取说明参数。本节还没有调用它；实际的第一次运行在第 4 步。
+先借用第 4 篇的读取说明参数。本节还没有调用它；实际的第一次运行在第 4 步。
 
 | 参数 | 读取场景中表示什么 |
 |---|---|
@@ -432,7 +432,7 @@ node src/examples/inspect-tools.ts
 node src/examples/inspect-context.ts
 ```
 
-预期行为与第 3 篇一致：主任务 completed，两次决策；工具检查入口仍区分四种请求；Context 观察仍显示读取后多出 tool 消息。原主入口没有提供第四个参数，所以本次正常运行没有额外的时间上限。
+预期行为与第 4 篇一致：主任务 completed，两次决策；工具检查入口仍区分四种请求；Context 观察仍显示读取后多出 tool 消息。原主入口没有提供第四个参数，所以本次正常运行没有额外的时间上限。
 
 ### agent-loop.ts 与 run-control.ts 现在怎样合作
 
@@ -616,7 +616,7 @@ inspect-wait.ts 只创建控制对象并等待一个不返回的工作，用来�
 node --inspect-brk src/examples/inspect-run-control.ts cancel-execution
 ```
 
-用第 3 篇的 Node 附加调试方法连接。调试 timeout 模式时，单步耗时本身可能超过 30 毫秒，可临时把它提高到 30000 再观察；实验后恢复为 30。不要在断点等待了几十秒后，将超时误判成工具代码出错。
+用第 4 篇的 Node 附加调试方法连接。调试 timeout 模式时，单步耗时本身可能超过 30 毫秒，可临时把它提高到 30000 再观察；实验后恢复为 30。不要在断点等待了几十秒后，将超时误判成工具代码出错。
 
 | 可见症状 | 沿链先检查哪里 | 具体变量或边界 |
 |---|---|---|
@@ -691,7 +691,7 @@ const hanging: Dependencies = {
 
 ## 完整最终文件
 
-以下是本篇全部新增或修改文件。未列出的文件保持第 3 篇版本，尤其不要重新修改诊断常量、读取参数规则或 Context 构造。两个观察入口的阶段版本最终收敛为下面同一套代码。
+以下是本篇全部新增或修改文件。未列出的文件保持第 4 篇版本，尤其不要重新修改诊断常量、读取参数规则或 Context 构造。两个观察入口的阶段版本最终收敛为下面同一套代码。
 
 ### src/runtime/run-control.ts
 
@@ -766,7 +766,7 @@ git diff --stat
 git add -- src/runtime/run-control.ts src/runtime/types.ts src/runtime/tool.ts src/runtime/tool-executor.ts src/runtime/agent-loop.ts src/examples/inspect-wait.ts src/examples/inspect-run-control.ts src/examples/inspect-tools.ts src/examples/inspect-context.ts site/
 git diff --cached --stat
 git commit -F - <<'COMMIT'
-第 04 篇：增加运行超时与外部取消控制
+第 05 篇：增加运行超时与外部取消控制
 
 让运行在决策或工具持续等待时能够退出，并保留停止前已确认的记录。
 

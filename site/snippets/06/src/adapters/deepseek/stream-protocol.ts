@@ -114,7 +114,7 @@ function appendChunk(draft: StreamDraft, payload: unknown, onProgress?: Progress
 // #endregion chunk
 
 // #region complete
-/** 只在收到 [DONE] 后调用，并复用第 5 篇的最终响应检查。 */
+/** 只在收到 [DONE] 后调用，并复用第 6 篇的最终响应检查。 */
 function completeDraft(draft: StreamDraft): Action {
   if (draft.finishReason === undefined) throw new Error("Stream ended without finish_reason");
 

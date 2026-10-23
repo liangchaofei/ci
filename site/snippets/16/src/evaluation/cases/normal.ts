@@ -4,7 +4,7 @@ import { observe, runCriteria } from "../evidence.ts";
 import { sourceCode } from "../../examples/diagnosis-fixture.ts";
 import type { EvaluationCase } from "../contracts.ts";
 
-/** 沿用第 15 篇任务，只增加观察与判定，不替换原运行循环。 */
+/** 沿用第 16 篇任务，只增加观察与判定，不替换原运行循环。 */
 export const normalCase: EvaluationCase = {
   id: "normal",
   title: "正常多轮：503 恢复后，读取证据进入下一轮",

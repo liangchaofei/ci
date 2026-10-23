@@ -1,11 +1,11 @@
 ---
-title: 第 03 篇｜工具契约与执行入口
+title: 第 04 篇｜工具契约与执行入口
 description: 从参数校验开始，建立工具注册表与统一执行入口，再将带调用身份的成功或失败结果交回原有 Runtime。
 ---
 
-# 第 03 篇：请求一个工具，不等于可以直接执行
+# 第 04 篇：请求一个工具，不等于可以直接执行
 
-第 2 篇已经连起“最新状态 → 本轮输入 → 决策”。现在，脚本提出 `read_source` 请求，循环就调用场景提供的读取函数。但如果请求的工具根本没有注册，或者 `path` 变成了数字，应该由谁阻止它？
+第 3 篇已经连起“最新状态 → 本轮输入 → 决策”。现在，脚本提出 `read_source` 请求，循环就调用场景提供的读取函数。但如果请求的工具根本没有注册，或者 `path` 变成了数字，应该由谁阻止它？
 
 本篇补上**工具执行入口**：先按名称找到工具，再检查参数，最后才允许进入具体操作。你会先独立运行一个工具，看到合法参数能够进入读取体、错误参数被提前挡住；随后将它接回原有循环，观察成功和失败怎样成为下一轮输入。
 
@@ -13,13 +13,13 @@ description: 从参数校验开始，建立工具注册表与统一执行入口�
 
 ## 本篇推荐分支
 
-从第 2 篇已验证并提交的本地版本创建，推荐分支名为 `codex/chapter-03-tool-execution`：
+从第 3 篇已验证并提交的本地版本创建，推荐分支名为 `codex/chapter-03-tool-execution`：
 
 ```bash
 git switch -c codex/chapter-03-tool-execution
 ```
 
-若分支已存在，用 `git switch codex/chapter-03-tool-execution` 返回。以下命令均在仓库根目录运行，不需要安装新依赖。开始前运行 `npm run typecheck`，确认第 2 篇没有遗留类型错误。
+若分支已存在，用 `git switch codex/chapter-03-tool-execution` 返回。以下命令均在仓库根目录运行，不需要安装新依赖。开始前运行 `npm run typecheck`，确认第 3 篇没有遗留类型错误。
 
 ## 先看一次请求要经过哪里
 
@@ -629,7 +629,7 @@ Pi 的 [prepareToolCall](https://github.com/earendil-works/pi/blob/8efd314fa3d32
 
 ## 完整最终文件
 
-以下汇总本篇新增或修改的文件，供逐份核对。第一阶段 inspect-tools.ts 的临时入口已被最终版本替换；context.ts 保持第 2 篇实现。没有新增单测。
+以下汇总本篇新增或修改的文件，供逐份核对。第一阶段 inspect-tools.ts 的临时入口已被最终版本替换；context.ts 保持第 3 篇实现。没有新增单测。
 
 ### src/runtime/tool.ts
 
@@ -706,7 +706,7 @@ git status --short
 git add -- src/runtime/tool.ts src/runtime/tool-registry.ts src/runtime/tool-executor.ts src/runtime/types.ts src/runtime/agent-loop.ts src/examples/diagnosis-fixture.ts src/examples/read-source-tool.ts src/examples/diagnosis-scenario.ts src/examples/inspect-tools.ts src/examples/first-loop.ts src/examples/inspect-context.ts site/
 git diff --cached --stat
 git commit -F - <<'COMMIT'
-第 03 篇：建立工具契约与统一执行入口
+第 04 篇：建立工具契约与统一执行入口
 
 将工具参数检查、具体执行和按名称查找分开，避免在循环中积累场景逻辑。
 
