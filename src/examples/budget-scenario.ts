@@ -21,9 +21,16 @@ export async function prepareBudgetScenario(limits: ResourceLimits = normalLimit
   const registry = createToolRegistry([tool]);
   const budget = createModelBudget(limits, { inputUnitsPerToken: 1, outputUnitsPerToken: 2 });
   const fixture = createBudgetModelFixture();
+  const requestBodies: Record<string, unknown>[] = [];
+  const send: typeof fetch = async (url, init) => {
+    const body: unknown = JSON.parse(String(init?.body));
+    if (!body || typeof body !== "object" || Array.isArray(body)) throw new Error("Expected model request object");
+    requestBodies.push(structuredClone(body as Record<string, unknown>));
+    return fixture.send(url, init);
+  };
   const decide = createDeepSeekDecider({ apiKey: "offline-placeholder", model: "offline-fixture", registry,
     systemPrompt: "读取源码后诊断空数组问题。", maxOutputTokens: 128,
-    http: { fetch: fixture.send, budget, retry: { ...settings,
+    http: { fetch: send, budget, retry: { ...settings,
       onRetry: (n) => console.log(`[模型准备重试] 下一次=${n.nextAttempt}，等待=${n.delayMs}ms`) } },
   });
   const executeTool = createAuthorizedExecutor({
@@ -37,5 +44,5 @@ export async function prepareBudgetScenario(limits: ResourceLimits = normalLimit
       return !!value && typeof value === "object" && "content" in value && value.content === sourceCode;
     }),
   }, { maxDecisions: 2, run: { timeoutMs } });
-  return { agent, budget, fixture };
+  return { agent, budget, fixture, requestBodies };
 }
