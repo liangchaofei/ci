@@ -81,6 +81,11 @@ function checkOutcome(value: unknown): void {
   text(outcome.status);
   if (["paused", "cancelled", "timed-out", "budget-exhausted"].includes(outcome.status)) return;
   if (outcome.status === "completed") { text(outcome.answer); return; }
+  if (outcome.status === "resource-limit") {
+    text(outcome.resource); text(outcome.reason);
+    if (!["model-requests", "model-concurrency", "known-tokens", "estimated-cost"].includes(outcome.resource)) throw new Error("Invalid resource kind");
+    return;
+  }
   if (outcome.status === "context-limit") { text(outcome.reason); return; }
   if (outcome.status === "failed") {
     text(outcome.reason);

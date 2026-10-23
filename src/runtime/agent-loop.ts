@@ -20,6 +20,7 @@ import type {
 } from "./types.ts";
 import { createRunState } from "./run-state.ts";
 import type { InputBoundary, RunInbox } from "./input-queue.ts";
+import { ResourceLimitError } from "./resource-types.ts";
 
 /** 执行调度配置独立于 RunControl，旧调用方可继续不提供。 */
 export type RunAgentOptions = RunOptions & {
@@ -134,6 +135,9 @@ export async function runAgentLoop(
         }
       } catch (error) {
         if (control.outcome()) throw error;
+        if (error instanceof ResourceLimitError) {
+            return finish({ status: "resource-limit", resource: error.resource, reason: error.message });
+        }
         return finish(failure(errorMessage(error), "decision"));
       }
 

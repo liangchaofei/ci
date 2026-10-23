@@ -37,6 +37,7 @@ export default defineConfig({
           { text: "12 恢复与未知副作用", link: "/guide/12-safe-recovery" },
           { text: "13 权限、审批与执行隔离", link: "/guide/13-tool-permissions" },
           { text: "14 错误分类与安全重试", link: "/guide/14-safe-retries" },
+          { text: "15 用量记账与资源预算", link: "/guide/15-resource-budgets" },
         ],
       },
     ],
