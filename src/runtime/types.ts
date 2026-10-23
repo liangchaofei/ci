@@ -1,4 +1,5 @@
 import type { StopOutcome } from "./run-control.ts";
+import type { ResourceKind } from "./resource-types.ts";
 
 
 /** 模型提出的工具请求；id 标识一次调用，name 标识工具种类。 */
@@ -47,6 +48,7 @@ export type Outcome =
     }
   | { status: "budget-exhausted" }
   | { status: "context-limit"; reason: string }
+  | { status: "resource-limit"; resource: ResourceKind; reason: string }
   | { status: "paused" }
   | StopOutcome;
 
