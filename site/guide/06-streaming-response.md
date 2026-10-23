@@ -1,11 +1,11 @@
 ---
-title: 第 06 篇｜流式响应与完整动作
+title: 第 07 篇｜流式响应与完整动作
 description: 从 UTF-8 字节和 SSE 事件开始，逐步组装模型文本与工具参数，只在响应完整且检查通过后交回 Action。
 ---
 
-# 第 06 篇：边接收边显示，什么时候才能执行
+# 第 07 篇：边接收边显示，什么时候才能执行
 
-第 5 篇已经能让 DeepSeek 决定读取源码、接收工具结果、再给出诊断。但每次请求都要等整份 JSON 返回后才能显示文字。回答较长时，终端会安静一段时间，随后一次性打印结果。
+第 6 篇已经能让 DeepSeek 决定读取源码、接收工具结果、再给出诊断。但每次请求都要等整份 JSON 返回后才能显示文字。回答较长时，终端会安静一段时间，随后一次性打印结果。
 
 本篇改成**流式接收**：同一次请求的内容分多次到达，文字可以边收到边显示。仍然诊断 `src/sum.ts` 中 `sum([])` 的问题，读取工具继续返回固定源码；变化发生在模型适配器，不在业务任务里。
 
@@ -15,7 +15,7 @@ description: 从 UTF-8 字节和 SSE 事件开始，逐步组装模型文本与�
 
 ## 推荐分支与前置版本
 
-从第 5 篇已验证并提交的本地版本创建：
+从第 6 篇已验证并提交的本地版本创建：
 
 ```bash
 git switch -c codex/chapter-06-streaming
@@ -23,7 +23,7 @@ git switch -c codex/chapter-06-streaming
 
 若已存在，用 `git switch codex/chapter-06-streaming` 返回。下面命令均在仓库根目录执行，沿用原有 Node、TypeScript 与依赖，不安装模型 SDK 或 SSE 库。
 
-先运行 `npm run typecheck` 与 `node src/examples/first-loop.ts` 确认基线。前两个阶段不需要密钥；最后联网运行仍使用第 5 篇的 `.env`，不要把密钥写进源码或教程示例。
+先运行 `npm run typecheck` 与 `node src/examples/first-loop.ts` 确认基线。前两个阶段不需要密钥；最后联网运行仍使用第 6 篇的 `.env`，不要把密钥写进源码或教程示例。
 
 ::: info 验证范围
 本篇候选实现在独立工程完成类型检查、SSE 分块观察、模拟 HTTP 两轮交互与故障验证。下文离线入口的输出可确定复现；真实模型响应标为流程示意，仍需使用本地有效配置运行。本篇没有以离线响应冒充真实 API 验收。
@@ -33,7 +33,7 @@ git switch -c codex/chapter-06-streaming
 
 ### 一次模型请求不等于一次网络读取
 
-第 5 篇的顺序是：一次请求 → 一份完整 JSON → 一个 Action。
+第 6 篇的顺序是：一次请求 → 一份完整 JSON → 一个 Action。
 
 现在仍是一次请求、最后交回一个 Action，只是中间会收到很多片段。片段的到达次数不增加 decisions，也不会让循环多执行几轮。
 
@@ -69,7 +69,7 @@ data: {"choices":[{"index":0,"delta":{"content":" reduce。"},"finish_reason":nu
 | 3 | finish_reason 为 tool_calls | 同上 | 继续等待本接口的结束标志 |
 | 4 | `[DONE]` | 同上 | 检查完整动作；合格后交回循环 |
 
-finish_reason 说明这一段生成以什么原因结束；本适配器只接受第 5 篇支持的 tool_calls 与 stop。`[DONE]` 是本接口的流结束标志，不是 JSON，也不是工具调用 ID。
+finish_reason 说明这一段生成以什么原因结束；本适配器只接受第 6 篇支持的 tool_calls 与 stop。`[DONE]` 是本接口的流结束标志，不是 JSON，也不是工具调用 ID。
 
 **同时确认结束原因与 `[DONE]` 是本项目的接收策略。** 网络直接关闭不代替完整结束；即使刚好收到了合法参数，也不能把断流当成正常工具请求。
 
@@ -91,7 +91,7 @@ finish_reason 说明这一段生成以什么原因结束；本适配器只接受
 
 ## 文件变化与实现顺序
 
-以下共新增 7 个文件，修改 1 个文件。`runtime/agent-loop.ts`、工具执行、Context 和 RunControl 全部复用，第 5 篇的非流式入口继续保留。
+以下共新增 7 个文件，修改 1 个文件。`runtime/agent-loop.ts`、工具执行、Context 和 RunControl 全部复用，第 6 篇的非流式入口继续保留。
 
 | 文件 | 操作 | 本章职责 |
 |---|---|---|
@@ -108,7 +108,7 @@ finish_reason 说明这一段生成以什么原因结束；本适配器只接受
 
 ## 第一阶段：从碎字节读出完整 SSE 事件
 
-本阶段只新增 sse.ts 和 inspect-sse.ts，不修改第 5 篇文件。先看读取能力，再引入模型响应的字段。
+本阶段只新增 sse.ts 和 inspect-sse.ts，不修改第 6 篇文件。先看读取能力，再引入模型响应的字段。
 
 ### 1. 逐步解码字节，读出完整行
 
@@ -261,7 +261,7 @@ const draft = {
 };
 ```
 
-call.arguments 暂时是字符串，不是第 5 篇 Action 中的参数对象；finishReason 也还没取得。这个对象不能发给执行器，不会因为显示文字就进入 State。
+call.arguments 暂时是字符串，不是第 6 篇 Action 中的参数对象；finishReason 也还没取得。这个对象不能发给执行器，不会因为显示文字就进入 State。
 
 record 检查当前值确实是非 null、非数组的对象，然后才允许按键读取。类型断言写在检查之后，只确认对象这一层，没有假装所有字段都已合格。
 
@@ -322,7 +322,7 @@ appendChunk 每次接收一份已解析的 SSE data JSON，而不是 reader.read
 
 text 是本次新增文字；argumentsPart 是刚才函数交回的本次新增参数。二者在草稿更新后交给 onProgress，显示方因此可以知道到达了什么，但拿不到整个可变草稿。
 
-末尾 `onProgress?.(...)` 表示提供监听函数时才调用。同步监听函数若抛错，本次决策会失败；不要在这里写工具执行、State 修改或未等待的异步操作。本章只有一个直接回调，不是第 9 篇将实现的通用事件系统。
+末尾 `onProgress?.(...)` 表示提供监听函数时才调用。同步监听函数若抛错，本次决策会失败；不要在这里写工具执行、State 修改或未等待的异步操作。本章只有一个直接回调，不是第 10 篇将实现的通用事件系统。
 
 #### finish_reason 与其他检查为什么放这里
 
@@ -330,7 +330,7 @@ text 是本次新增文字；argumentsPart 是刚才函数交回的本次新增�
 
 finishReason 已经出现后，不再接受新模型数据；接下来应是本接口的 `[DONE]`。当前 DeepSeek 文档把用量附在最后内容块，本章不启用其他服务那种单独空 choices 用量尾块，也不将这一适配器当成任意 OpenAI 兼容接口的通用实现。
 
-非空 reasoning_content 拒绝，保持第 5 篇的非思考约定。content 必须是字符串或缺省/null；草稿文本与参数合计还有长度保护。后者防止无限拼接，不代替未来的 token 与费用预算。
+非空 reasoning_content 拒绝，保持第 6 篇的非思考约定。content 必须是字符串或缺省/null；草稿文本与参数合计还有长度保护。后者防止无限拼接，不代替未来的 token 与费用预算。
 
 ### 7. 草稿完整后，复用原来的最终解码
 
@@ -338,7 +338,7 @@ finishReason 已经出现后，不再接受新模型数据；接下来应是本�
 
 <<< ../snippets/06/src/adapters/deepseek/stream-protocol.ts#complete
 
-本函数接收 StreamDraft，返回 Action。它先要求有 finishReason，再把草稿组装成第 5 篇解码器已经认识的响应形状。
+本函数接收 StreamDraft，返回 Action。它先要求有 finishReason，再把草稿组装成第 6 篇解码器已经认识的响应形状。
 
 以读取为例：draft.call.arguments 仍是完整 JSON 字符串；放入 function.arguments 后，decodeDeepSeekAction 才会解析它，检查调用数量、身份、名称、参数对象及结束原因，再交回 tool Action。ID、名称一直缺失、参数损坏或 finish_reason 为 length 都不能因为拼接结束就绕过原检查。
 
@@ -503,7 +503,7 @@ node src/examples/inspect-stream.ts cancel
 消息顺序（messages）: user
 ```
 
-停止原因来自第 4 篇的 RunControl，而不是识别某个错误字符串。聚合函数和读取器使用同一 signal，不再交回成功动作。本例取消发生在工具执行前，不证明已开始的外部写操作能够回滚。
+停止原因来自第 5 篇的 RunControl，而不是识别某个错误字符串。聚合函数和读取器使用同一 signal，不再交回成功动作。本例取消发生在工具执行前，不证明已开始的外部写操作能够回滚。
 
 ### 回看两个离线文件的配合
 
@@ -555,7 +555,7 @@ import { buildDeepSeekMessages, decodeDeepSeekAction } from "./protocol.ts";
 
 <<< ../snippets/06/src/adapters/deepseek/decider.ts#options
 
-stream 与 onProgress 都可选。第 5 篇原入口不传 stream，仍走非流式方式；新的入口传 true，才启用本章路径。回调只用于流式进度，不是让循环依赖一种新返回类型。
+stream 与 onProgress 都可选。第 6 篇原入口不传 stream，仍走非流式方式；新的入口传 true，才启用本章路径。回调只用于流式进度，不是让循环依赖一种新返回类型。
 
 再用下面完整函数替换 createDeepSeekDecider，其他文件里的 Dependencies 保持不变：
 
@@ -563,7 +563,7 @@ stream 与 onProgress 都可选。第 5 篇原入口不传 stream，仍走非流
 
 #### 两种路径在哪里分开，在哪里汇合
 
-创建时提取工具清单的逻辑沿用第 5 篇。每轮运行时，先从 context 构造 messages，再准备共同请求体 body，随后分支：
+创建时提取工具清单的逻辑沿用第 6 篇。每轮运行时，先从 context 构造 messages，再准备共同请求体 body，随后分支：
 
 ```text
 options.stream 为 true
@@ -605,7 +605,7 @@ node src/examples/first-loop.ts
 
 新建 `src/examples/deepseek-stream-agent.ts`，写入完整内容：
 
-与第 5 篇真实入口相比，本次只把 decide 配置成流式接收，并显示文字增量。原循环、执行器和完成规则继续使用，不另写一套“流式 Agent”。下面代码替换整个入口时按顺序写入。
+与第 6 篇真实入口相比，本次只把 decide 配置成流式接收，并显示文字增量。原循环、执行器和完成规则继续使用，不另写一套“流式 Agent”。下面代码替换整个入口时按顺序写入。
 
 **第 1 步：读取原有配置。** 在 `src/examples/deepseek-stream-agent.ts` 中先写入以下内容：
 
@@ -631,7 +631,7 @@ node src/examples/first-loop.ts
 
 前面可能已经显示了文字，但完成与失败仍以 result.outcome 为准。这里在 await 返回后显示角色、次数与正式答案，避免把半途输出误认为任务成功。
 
-与第 5 篇入口对照，只增加了流式配置和显示回调：stream:true 选择新路径；text-delta 到达时用 process.stdout.write 追加文字，不为每片内容额外换行。工具参数增量没有在正常入口打印，避免把协议观察混进用户回答。
+与第 6 篇入口对照，只增加了流式配置和显示回调：stream:true 选择新路径；text-delta 到达时用 process.stdout.write 追加文字，不为每片内容额外换行。工具参数增量没有在正常入口打印，避免把协议观察混进用户回答。
 
 在根目录确认 `.env` 已配置后运行：
 
@@ -707,7 +707,7 @@ node --inspect-brk src/examples/inspect-stream.ts complete
 node --env-file=.env --inspect-brk src/examples/deepseek-stream-agent.ts
 ```
 
-遇 HTTP、账户或网络错误时仍先检查第 5 篇链路；只有已经取得合法 SSE 响应后，才进入本章字节、事件和草稿的排查。
+遇 HTTP、账户或网络错误时仍先检查第 6 篇链路；只有已经取得合法 SSE 响应后，才进入本章字节、事件和草稿的排查。
 
 ## 可逆故障实验
 
@@ -747,7 +747,7 @@ complete、cut、cancel 是固定观察模式，运行它们不需要改源文�
 
 ## 完整最终文件
 
-这里只汇总本章新增或修改的 8 个文件。其余第 5 篇实现保留，不要删除原非流式入口或修改循环。
+这里只汇总本章新增或修改的 8 个文件。其余第 6 篇实现保留，不要删除原非流式入口或修改循环。
 
 ### src/adapters/sse.ts
 
@@ -811,7 +811,7 @@ git diff --stat
 git add -- src/adapters/sse.ts src/examples/inspect-sse.ts src/adapters/deepseek/stream-protocol.ts src/examples/stream-fixture.ts src/examples/inspect-stream.ts src/adapters/deepseek/stream-http.ts src/adapters/deepseek/decider.ts src/examples/deepseek-stream-agent.ts site/
 git diff --cached --stat
 git commit -F - <<'COMMIT'
-第 06 篇：接入流式响应并保护完整动作边界
+第 07 篇：接入流式响应并保护完整动作边界
 
 在原有 DeepSeek 适配器中增加可选流式接收，进度只用于显示，完整动作仍交给同一个 Runtime 执行与记录。
 

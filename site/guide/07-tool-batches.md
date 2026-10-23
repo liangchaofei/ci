@@ -1,13 +1,13 @@
 ---
-title: 第 07 篇｜工具批次与有界并行
+title: 第 08 篇｜工具批次与有界并行
 description: 一次决策可以提出多个独立读取；先预检，按配置调度，按调用身份归位结果，再由原循环整批写回。
 ---
 
-# 第 07 篇：一次要读两份文件，怎样安排执行
+# 第 08 篇：一次要读两份文件，怎样安排执行
 
 前六篇已经能完成这样的过程：模型提出“读取源码”，Runtime 执行读取，把源码内容记下来，再交给模型继续判断。本篇仍然做同一个诊断任务，只是模型需要的材料多了一份。
 
-用户现在要求：“看看 sum 的源码和已有测试，解释为什么空数组会报错，以及测试遗漏了什么。”模型可以在一次回复中提出两个请求：读取源码、读取测试。第 6 篇的实现只接收一个调用，遇到这种回复会拒绝。
+用户现在要求：“看看 sum 的源码和已有测试，解释为什么空数组会报错，以及测试遗漏了什么。”模型可以在一次回复中提出两个请求：读取源码、读取测试。第 7 篇的实现只接收一个调用，遇到这种回复会拒绝。
 
 本篇要让 Runtime 接住这两个请求，安排执行，把两份结果一起交给下一轮决策。先弄清这件事怎样发生，再看要改哪些文件。
 
@@ -60,7 +60,7 @@ Runtime 收到 A、B 两个请求
 
 ### 本篇扩大的是“执行工具”这一段
 
-第 6 篇是“得到一个请求 → 执行一次 → 写回一份结果”。第 7 篇变成“得到一组请求 → 安排执行 → 写回对应的多份结果”。**执行之后仍然回到原循环，下一轮仍从最新 State 取得输入。**
+第 7 篇是“得到一个请求 → 执行一次 → 写回一份结果”。第 8 篇变成“得到一组请求 → 安排执行 → 写回对应的多份结果”。**执行之后仍然回到原循环，下一轮仍从最新 State 取得输入。**
 
 先认识两个负责这段过程的文件：
 
@@ -77,7 +77,7 @@ Runtime 收到 A、B 两个请求
 
 ## 推荐分支与前置版本
 
-先完成并提交第 6 篇，再从该本地版本创建：
+先完成并提交第 7 篇，再从该本地版本创建：
 
 ```bash
 git switch -c codex/chapter-07-tool-batches
@@ -210,7 +210,7 @@ input 来自调用请求，不能只凭 TypeScript 类型相信它。代码先�
 
 这就得到第二种可注册的工具 readTestsTool。模型通过说明和 parameters 了解怎样请求它；实际调用 invoke 时，仍先执行 parse，检查通过才执行 execute，并返回 testsCode。
 
-read-tests-tool.ts 管的是“一次测试片段读取”。它不负责安排源码读取，也不保存运行历史。稍后的批次模块会通过第 3 篇已有的 executeTool 找到它；对这个工具来说，一次调用与以前没有区别。
+read-tests-tool.ts 管的是“一次测试片段读取”。它不负责安排源码读取，也不保存运行历史。稍后的批次模块会通过第 4 篇已有的 executeTool 找到它；对这个工具来说，一次调用与以前没有区别。
 
 ### 3. 先定义批次配置与整批预检
 
@@ -481,7 +481,7 @@ RunAgentOptions 将原时间与取消配置同工具调度配置组合，旧调�
 
 若测试读取抛普通异常，runBatch 把它转换为带 tests-1 的 error 观察。它与源码结果一起返回，循环仍能写回两条 tool 消息；下一次 decide 根据失败信息判断怎么办。
 
-若某份结果的 callId 错配，runBatch 抛错，循环在执行处的 catch 返回 execution 失败。流程到不了写回语句，也不会再问模型。取消或超时则先交给 control.outcome，沿第 4 篇的停止出口返回，不伪装成普通工具错误。
+若某份结果的 callId 错配，runBatch 抛错，循环在执行处的 catch 返回 execution 失败。流程到不了写回语句，也不会再问模型。取消或超时则先交给 control.outcome，沿第 5 篇的停止出口返回，不伪装成普通工具错误。
 
 预检也有自己的时机：两个请求在记录动作前就检查，重复 ID 或空批次会停在那里，工具还没启动，decisions 也不会增加。
 
@@ -658,7 +658,7 @@ import { validateToolBatch } from "../../runtime/tool-batch.ts";
 
 ### 13. 为流式响应按 index 保留多份草稿
 
-一次回复里有两个请求，不代表它们的参数按整份先后到达。可能先来“测试参数的前半段”，再来“源码参数的前半段”，然后才各自补齐后半段。第 6 篇只保存一份 call 草稿，现在必须先辨认片段属于哪一项。
+一次回复里有两个请求，不代表它们的参数按整份先后到达。可能先来“测试参数的前半段”，再来“源码参数的前半段”，然后才各自补齐后半段。第 7 篇只保存一份 call 草稿，现在必须先辨认片段属于哪一项。
 
 接口片段中的 index 就用来标记它在当前回复里的位置：0 属于第一项，1 属于第二项。本例中 0 是源码，1 是测试。**这是参数接收顺序的问题，与后面工具谁先执行完是两件事。**
 
@@ -720,7 +720,7 @@ collect 的其他流程保留：普通事件只组装，收到 `[DONE]` 才完�
 
 从外部看，入口仍是 collectDeepSeekAction：它接收事件，每条事件交给 appendChunk；其中的工具片段再由 appendToolDeltas 分别保存。收到 `[DONE]` 时，才调用 completeDraft 还原顺序、检查完整动作并返回。
 
-回到整条运行过程：这份 Action 返回给 decide，再返回给 agent-loop.ts。循环记录请求之后，才会调用 runBatch。**参数正在流入，不等于工具正在执行。** SSE 字节读取沿用第 6 篇，多调用草稿只改变响应怎样组装。
+回到整条运行过程：这份 Action 返回给 decide，再返回给 agent-loop.ts。循环记录请求之后，才会调用 runBatch。**参数正在流入，不等于工具正在执行。** SSE 字节读取沿用第 7 篇，多调用草稿只改变响应怎样组装。
 
 ### 14. 离线观察调用片段交错到达
 
@@ -746,7 +746,7 @@ events 是完整的异步生成函数，必须整体写入。按顺序看 deltas
 
 参数进度日志显示到达顺序；await 返回的 action 才是完整结果。最后遍历调用，核对 id 与各自 path，不能在前面的片段回调里启动工具。
 
-events 用 async function* 一次交出一条人工事件，供 collectDeepSeekAction 的 for await 接收。这里直接提供完整 data 文本，不再模拟第 6 篇的 SSE 字节分割。前两条先交出测试、源码各自的身份和半份参数，后两条再补齐，最后交出结束原因和 `[DONE]`。
+events 用 async function* 一次交出一条人工事件，供 collectDeepSeekAction 的 for await 接收。这里直接提供完整 data 文本，不再模拟第 7 篇的 SSE 字节分割。前两条先交出测试、源码各自的身份和半份参数，后两条再补齐，最后交出结束原因和 `[DONE]`。
 
 运行：
 
@@ -769,7 +769,7 @@ node src/examples/inspect-batch-stream.ts
 
 新建 `src/examples/deepseek-batch-agent.ts`，写入完整内容：
 
-这个真实入口复用第 6 篇模型适配器，只增加第二种读取工具与批次执行配置。先沿“注册两种工具 → 创建 decide → 调用原循环”理解，流式开关只选择响应接收方式。
+这个真实入口复用第 7 篇模型适配器，只增加第二种读取工具与批次执行配置。先沿“注册两种工具 → 创建 decide → 调用原循环”理解，流式开关只选择响应接收方式。
 
 **第 1 步：读取配置并选择响应方式。** 在 `src/examples/deepseek-batch-agent.ts` 中先写入以下内容：
 
@@ -818,7 +818,7 @@ node --env-file=.env src/examples/deepseek-batch-agent.ts stream
 
 模型也可能分两轮分别读取，此时每次是旧 tool 动作，总决策数相应增加，不因此判为错误。本例完成规则要求两份真实运行证据与非空答案，没有自动评估答案语义；应手工核对是否说明 reduce 缺少初始值，以及固定测试片段只有非空数组情况。
 
-旧 `first-loop.ts` 与第 5、6 篇单调用入口保留作对照。新任务应使用 batch-scenario 的证据规则，不能把旧的“单个请求后紧邻一条结果”的场景假设当成通用批次规则。
+旧 `first-loop.ts` 与第 6、7 篇单调用入口保留作对照。新任务应使用 batch-scenario 的证据规则，不能把旧的“单个请求后紧邻一条结果”的场景假设当成通用批次规则。
 
 ## 调试：从一个 ID 与一个数组位置开始
 
@@ -894,7 +894,7 @@ Pi 还包含调用准备、结束处理、事件与终止策略。本章的每�
 
 ## 完整最终文件
 
-以下只汇总本章新增或修改的 14 个文件；其他第 6 篇源码保留。每个文件的职责已经在完成处说明，此处供实现后核对，不替代前面的步骤。
+以下只汇总本章新增或修改的 14 个文件；其他第 7 篇源码保留。每个文件的职责已经在完成处说明，此处供实现后核对，不替代前面的步骤。
 
 ### src/examples/batch-fixture.ts
 
@@ -988,7 +988,7 @@ git diff --stat
 git add -- src/examples/batch-fixture.ts src/examples/read-tests-tool.ts src/runtime/tool-batch.ts src/examples/inspect-tool-batch.ts src/runtime/types.ts src/runtime/action-tools.ts src/runtime/agent-loop.ts src/examples/batch-scenario.ts src/examples/inspect-batch-loop.ts src/adapters/deepseek/protocol.ts src/adapters/deepseek/decider.ts src/adapters/deepseek/stream-protocol.ts src/examples/inspect-batch-stream.ts src/examples/deepseek-batch-agent.ts site/
 git diff --cached --stat
 git commit -F - <<'COMMIT'
-第 07 篇：增加工具批次与有界并行执行
+第 08 篇：增加工具批次与有界并行执行
 
 在同一 Runtime 中接收多个工具请求，按应用配置选择顺序或并行，结果按身份与原请求位置关联，确认后整批写回。
 

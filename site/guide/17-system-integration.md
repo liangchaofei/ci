@@ -1,17 +1,17 @@
 ---
-title: 第 17 篇｜把各模块连成同一个 Runtime
+title: 第 18 篇｜把各模块连成同一个 Runtime
 description: 用同一组装入口贯穿模型、权限、工具、状态、预算和保存恢复，复盘源码与实际边界，完成单机 Runtime 的系统验收。
 ---
 
-# 第 17 篇：把各模块连成同一个 Runtime
+# 第 18 篇：把各模块连成同一个 Runtime
 
 前面已经能分别观察模型调用、工具反馈、权限拒绝、用量和恢复。但当一个任务出问题时，仍可能不知道该打开哪个文件：模型没有收到工具结果，是输入丢了，还是工具根本没执行？终端显示结束，磁盘是否也保存好了？
 
 本篇把已有模块接到**同一个组装入口**，用“读取源码和测试片段，诊断空数组求和失败”的任务走完全过程。随后只改变运行条件，观察无证据完成、权限拒绝、额度不足、取消和跨进程接续。最后用同一张系统地图定位源码。
 
-第 17 篇是本阶段的收尾。完成后，可以说已经实现了**本课程约定范围内的单机 Agent Runtime**：它能驱动模型与工具协作，并控制状态、停止、输入、权限、预算和保存恢复。这里的“完成”有明确范围：没有实现完整 Pi 产品、生产隔离平台或能够修复任意仓库的 Coding Agent。
+第 18 篇是本阶段的收尾。完成后，可以说已经实现了**本课程约定范围内的单机 Agent Runtime**：它能驱动模型与工具协作，并控制状态、停止、输入、权限、预算和保存恢复。这里的“完成”有明确范围：没有实现完整 Pi 产品、生产隔离平台或能够修复任意仓库的 Coding Agent。
 
-本章仍不改写 `src/runtime/`。新增的 `src/application/` 负责把已有模块接起来；`src/examples/` 提供演示资源、离线服务和运行入口。第 16 篇的 `src/evaluation/` 继续是外部验证工具，应用平时运行 Agent 不依赖它。
+本章仍不改写 `src/runtime/`。新增的 `src/application/` 负责把已有模块接起来；`src/examples/` 提供演示资源、离线服务和运行入口。第 17 篇的 `src/evaluation/` 继续是外部验证工具，应用平时运行 Agent 不依赖它。
 
 ## 先把这次任务说清楚
 
@@ -30,7 +30,7 @@ description: 用同一组装入口贯穿模型、权限、工具、状态、预�
 
 **模型回答是固定替身，文件读取、HTTP 协议解码、重试、权限检查、状态写回和磁盘保存都实际执行。** 读取测试片段不等于运行测试，本章也不修改源码。完成只表示“固定诊断有两份读取证据”，不表示“修复通过了测试”。
 
-这次整合先使用非流式响应，让主线容易观察。第 6、16 篇的断流检查继续保留；不是把前面支持的流式功能删掉，也不宣称这一个命令覆盖所有机制。
+这次整合先使用非流式响应，让主线容易观察。第 7、17 篇的断流检查继续保留；不是把前面支持的流式功能删掉，也不宣称这一个命令覆盖所有机制。
 
 ### 为什么还要增加组装入口
 
@@ -50,7 +50,7 @@ description: 用同一组装入口贯穿模型、权限、工具、状态、预�
 
 ## 前置版本与文件地图
 
-先完成并保存第 16 篇，再新建本篇分支。`git status` 有未保存内容时，先按第 16 篇末尾命令处理，避免把尚未完成的改动误认为第 17 篇起点。
+先完成并保存第 17 篇，再新建本篇分支。`git status` 有未保存内容时，先按第 17 篇末尾命令处理，避免把尚未完成的改动误认为第 18 篇起点。
 
 ```bash
 git status --short
@@ -89,7 +89,7 @@ npm run check
 
 沿正常源码读取走一次：权限入口收到 `source-1`，inspect 找到已注册工具，用原参数解析器检查逻辑路径，再取得当前工作区版本，交回“这是读取、资源版本是多少”。检查本身不调用工具的 invoke。资源检查会读取文件来计算版本，但不会产生给模型的 ToolResult，也不算完成规则中的读取证据。获准之后，execute 才以工具身份读取这个 root 下的 `sum.ts` 并交回结果。
 
-工作区版本沿用第 12 篇两文件内容的散列；当前 allowedTools 每次从应用函数获取。恢复依据不能从模型输入或旧批准中取回来。这里检查的是可信私人目录中的两份演示资源；没有复用第 13 篇受限写入子进程，也没有新增对恶意代码的沙箱隔离。
+工作区版本沿用第 13 篇两文件内容的散列；当前 allowedTools 每次从应用函数获取。恢复依据不能从模型输入或旧批准中取回来。这里检查的是可信私人目录中的两份演示资源；没有复用第 14 篇受限写入子进程，也没有新增对恶意代码的沙箱隔离。
 
 ### 2. 完成规则仍由应用提供
 
@@ -420,7 +420,7 @@ node src/examples/run-integrated-runtime.ts cancel
 
 request-limit 不是“模型重试了三次才失败”，第二次传输在开始前就被门禁阻止。context-limit 也不是服务商拒绝，它发生在本地构造 Context 时。cancel 的动作记录不被抹掉，但停止检查阻止后面的实际执行。
 
-本命令按原流程返回任务 Outcome，所以预期失败场景运行完也可以是进程退出码 0。下一阶段的检查命令才在行为不符合期望时抛错、返回非零；这与第 16 篇“任务失败不等于评估失败”一致。
+本命令按原流程返回任务 Outcome，所以预期失败场景运行完也可以是进程退出码 0。下一阶段的检查命令才在行为不符合期望时抛错、返回非零；这与第 17 篇“任务失败不等于评估失败”一致。
 
 ### 14. 暂停后，换一个 Node 进程继续
 
@@ -444,7 +444,7 @@ node src/examples/run-integrated-runtime.ts resume '这里替换为 pause 打印
 
 **本项目尚未持久化模型预算账本。** pause 与 resume 的模型请求分别受新建预算控制；旧报告可用于人工核对，不是跨重启总额门禁。若业务要求“这项任务跨重启最多花固定金额”，还需要持久账本、保留额度与并发一致性设计，当前实现不能声称具备这一保证。
 
-审批也没有随 State 恢复；本场景全是只读操作。第 13 篇写入的批准等待是同进程的一次授权，第 10 篇 pause 是循环安全边界暂停，二者不能合称为已经实现“等待批准时随意重启继续”。
+审批也没有随 State 恢复；本场景全是只读操作。第 14 篇写入的批准等待是同进程的一次授权，第 11 篇 pause 是循环安全边界暂停，二者不能合称为已经实现“等待批准时随意重启继续”。
 
 #### 可逆故障：改变资源后能否继续
 
@@ -484,7 +484,7 @@ node src/examples/inspect-integrated-runtime.ts
 
 runNode 启动 pause 命令，等待退出，再启动 resume 命令。检查读取新进程的报告，确认 completed、没有 batch-started，并比较旧日志原文。
 
-没有新的批次通知说明新段没有重新进入工具批次，但这项检查仍不能证明所有恢复场景都安全。未知写入、损坏会话与过期资源仍由第 12、16 篇的对应检查覆盖。
+没有新的批次通知说明新段没有重新进入工具批次，但这项检查仍不能证明所有恢复场景都安全。未知写入、损坏会话与过期资源仍由第 13、17 篇的对应检查覆盖。
 
 ### 17. 同一进程创建两个实例
 
@@ -504,7 +504,7 @@ node src/examples/inspect-integrated-runtime.ts
 node src/examples/run-runtime-evaluations.ts
 ```
 
-前一个运行命令应有六种出口、跨进程接续、两个实例共八条整合确认；后一个是第 16 篇原十项回归。它们覆盖的条件不同，不能只保留“正常一次 completed”。
+前一个运行命令应有六种出口、跨进程接续、两个实例共八条整合确认；后一个是第 17 篇原十项回归。它们覆盖的条件不同，不能只保留“正常一次 completed”。
 
 ## 调试时，从第一次偏离预期的地方查起
 
@@ -548,7 +548,7 @@ inspect-brk 会等调试器；连接后先继续执行。断点停留也会消�
 |---|---|---|
 | 拒绝同一实例并发重入，管理运行结束 | [agent.ts：runWithLifecycle 与 finishRun](https://github.com/earendil-works/pi/blob/8efd314fa3d3232ce197d8d7a6a5660530b9d83e/packages/agent/src/agent.ts#L479) | Pi 持有 activeRun 并在生命周期结束后清理；本项目由 Agent 的活动控制器与 finally 管理 |
 | 内部历史变成模型输入 | [agent-loop.ts：streamAssistantResponse](https://github.com/earendil-works/pi/blob/8efd314fa3d3232ce197d8d7a6a5660530b9d83e/packages/agent/src/agent-loop.ts#L354) | Pi 先 transformContext 再 convertToLlm；本项目先构造 DecisionContext，再做 DeepSeek 协议转换 |
-| 工具执行前允许拒绝，执行顺序与记录顺序分别定义 | [types.ts：ToolExecutionMode、beforeToolCall](https://github.com/earendil-works/pi/blob/8efd314fa3d3232ce197d8d7a6a5660530b9d83e/packages/agent/src/types.ts#L36) | Pi 定义执行前钩子与并行记录语义；本项目有显式授权包装和第 7 篇批次执行器 |
+| 工具执行前允许拒绝，执行顺序与记录顺序分别定义 | [types.ts：ToolExecutionMode、beforeToolCall](https://github.com/earendil-works/pi/blob/8efd314fa3d3232ce197d8d7a6a5660530b9d83e/packages/agent/src/types.ts#L36) | Pi 定义执行前钩子与并行记录语义；本项目有显式授权包装和第 8 篇批次执行器 |
 
 有些原则相通，协议与保证却不相同。例如该版本 Pi 的事件处理会等待监听者；本项目事件总线不等待异步观察者。因此不能把 Pi 的监听器用法直接当成本项目的权限或持久化机制；本项目仍用明确的执行门禁和 resultSink。
 
@@ -561,21 +561,21 @@ Pi 的流式临时消息管理也不同于本项目“完整动作才写回”�
 | 能力 | 主要源码位置 | 用什么证据检查 |
 |---|---|---|
 | 决策、工具反馈、完成核对 | agent-loop、types、context | 本章 normal 与 early-finish |
-| 工具契约、关联、批次与乱序 | tool、tool-executor、tool-batch | 第 3、7 篇与第 16 篇 parallel-order |
-| 真实模型协议与完整流式动作 | adapters/deepseek | 第 5、6 篇及第 16 篇 stream-cut |
-| 次数、时间、取消、迟到值 | run-control、agent-loop | 第 4 篇、第 16 篇 late-cancel 与本章 cancel |
-| 输入选择、摘要和限制 | context-window、context-exchanges | 第 8 篇与本章 context-limit |
-| 实例、观察与追加输入 | agent、events、input-queue | 第 9、10 篇与本章实例独立检查 |
-| 日志、快照、保守恢复 | session-*、recovery-*、result-sink | 第 11、12、16 篇及本章进程接续 |
-| 执行授权与演示隔离 | authorization、受限文件子进程 | 第 13 篇与第 16 篇拒绝/越界 |
-| 安全局部重试与资源账本 | retry、dependency-error、model-budget、usage-ledger | 第 14、15、16 篇及本章请求计数 |
+| 工具契约、关联、批次与乱序 | tool、tool-executor、tool-batch | 第 4、8 篇与第 17 篇 parallel-order |
+| 真实模型协议与完整流式动作 | adapters/deepseek | 第 6、7 篇及第 17 篇 stream-cut |
+| 次数、时间、取消、迟到值 | run-control、agent-loop | 第 5 篇、第 17 篇 late-cancel 与本章 cancel |
+| 输入选择、摘要和限制 | context-window、context-exchanges | 第 9 篇与本章 context-limit |
+| 实例、观察与追加输入 | agent、events、input-queue | 第 10、11 篇与本章实例独立检查 |
+| 日志、快照、保守恢复 | session-*、recovery-*、result-sink | 第 12、13、17 篇及本章进程接续 |
+| 执行授权与演示隔离 | authorization、受限文件子进程 | 第 14 篇与第 17 篇拒绝/越界 |
+| 安全局部重试与资源账本 | retry、dependency-error、model-budget、usage-ledger | 第 15、16、17 篇及本章请求计数 |
 
 这些模块已经组成一套可运行、可解释、能验证明确边界的单机 Runtime。换一个任务，应替换工作区能力、模型配置与完成规则，继续使用相同核心循环；不用为“诊断”“检索”“审批”各写一个新的 while。
 
 ### 不能由课程验收推出的能力
 
 - **不是完整 Coding Agent**：没有任意仓库编辑、构建测试执行与可靠补丁验证；固定诊断不能代表模型能修复未知项目。
-- **不是通用模型框架**：当前适配器只支持已实现的 DeepSeek 协议子集，工具 schema 与消息形式也有范围。真实服务调用沿第 5、6 篇验证，本章没有联网验证当前模型服务。
+- **不是通用模型框架**：当前适配器只支持已实现的 DeepSeek 协议子集，工具 schema 与消息形式也有范围。真实服务调用沿第 6、7 篇验证，本章没有联网验证当前模型服务。
 - **不是生产沙箱**：私人目录、可信子进程与参数检查不提供容器/虚拟机、网络隔离、租户凭据保护和恶意代码安全保证。
 - **不是任意状态恢复**：只接续检查通过的暂停结果，未知执行要阻止并调查；等待中的批准、输入队列和活跃 Promise 不会跨进程还原。
 - **不是跨重启硬费用上限**：预算当前在内存中；未报告 usage 单独记账，估算单位不等于最终账单，也不会事先预知一次响应实际消耗。
@@ -660,14 +660,14 @@ git add src/application/runtime-session.ts \
   site/ AGENTS.md
 
 git commit -F - <<'COMMIT'
-第 17 篇：整合单机会话入口并复盘 Runtime 能力边界
+第 18 篇：整合单机会话入口并复盘 Runtime 能力边界
 
 连接模型传输、当前权限、执行意图、工具与结果保存，沿用原 Agent 循环。
 用正常诊断、无证据完成、拒绝、额度不足和取消检查同一运行链。
 验证跨进程接续和同进程双实例的数据独立，保留实际报告用于调试。
 补充分步教程、系统图、Pi 局部对照和实现范围说明。
 
-已运行工程检查、整合场景、第 16 篇回归与网站构建。
+已运行工程检查、整合场景、第 17 篇回归与网站构建。
 COMMIT
 
 git push -u origin codex/chapter-17-system-integration

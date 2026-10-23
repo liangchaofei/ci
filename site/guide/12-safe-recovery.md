@@ -1,11 +1,11 @@
 ---
-title: 第 12 篇｜从保存的进度继续前，先核对执行事实
+title: 第 13 篇｜从保存的进度继续前，先核对执行事实
 description: 从跨进程继续诊断出发，区分恢复状态与重放工具，记录执行意图，核对资源版本和当前工具授权，拒绝未知副作用的自动恢复。
 ---
 
-# 第 12 篇：从保存的进度继续前，先核对执行事实
+# 第 13 篇：从保存的进度继续前，先核对执行事实
 
-第 11 篇能把暂停结果保存下来，再用另一个进程读回。读回四条消息后，我们还不能直接继续：文件可能已经被别人改过，原来的工具授权可能失效，最后一次操作也可能已经执行、却没有来得及保存结果。
+第 12 篇能把暂停结果保存下来，再用另一个进程读回。读回四条消息后，我们还不能直接继续：文件可能已经被别人改过，原来的工具授权可能失效，最后一次操作也可能已经执行、却没有来得及保存结果。
 
 本篇先走一个正常任务：仍然诊断 sum([])，读取源码和测试后暂停、退出；另一个进程确认进度可信，再接入“请用中文说明”的要求。**新进程应直接利用已保存的两份读取结果回答，工具执行次数为 0。**
 
@@ -42,13 +42,13 @@ AWS 对重试的说明也使用了相同风险：没有收到创建资源的响�
 
 ## 一份结束结果，加一份恢复标记
 
-第 11 篇 journal.jsonl 和 checkpoint.json 保留。本篇每个新会话再增加 recovery.json，用来回答“这段运行有没有走到可以核对的结束位置”。
+第 12 篇 journal.jsonl 和 checkpoint.json 保留。本篇每个新会话再增加 recovery.json，用来回答“这段运行有没有走到可以核对的结束位置”。
 
 | 文件或对象 | 存什么 | 谁负责 |
 |---|---|---|
 | State | 当前任务的消息和累计决策数 | 循环写回 |
-| journal.jsonl | 每段结束的完整结果 | 沿用第 11 篇保存器 |
-| checkpoint.json | 最后一条结果的副本 | 沿用第 11 篇保存器 |
+| journal.jsonl | 每段结束的完整结果 | 沿用第 12 篇保存器 |
+| checkpoint.json | 最后一条结果的副本 | 沿用第 12 篇保存器 |
 | recovery.json | 当前段标记、已登记调用、资源与授权、对应结果凭据 | 本篇恢复写入器 |
 | 当前环境检查结果 | 现在的工作区身份、资源版本和允许工具 | 应用重新检查，不从旧日志授予 |
 
@@ -80,9 +80,9 @@ AWS 对重试的说明也使用了相同风险：没有收到创建资源的响�
 
 旧会话可以再次读回形成不同分支；本篇没有跨进程恢复租约，不能把一次门禁当作多个恢复者之间的全局去重。
 
-当前允许工具清单是简单的应用配置，不是完整权限系统。本篇没有实现审批、用户身份认证、路径隔离、资源锁或外部服务查询补偿；这些不能靠一份本地标记替代。第 13 篇继续补执行权与隔离。
+当前允许工具清单是简单的应用配置，不是完整权限系统。本篇没有实现审批、用户身份认证、路径隔离、资源锁或外部服务查询补偿；这些不能靠一份本地标记替代。第 14 篇继续补执行权与隔离。
 
-从完成并提交的第 11 篇创建本章分支：
+从完成并提交的第 12 篇创建本章分支：
 
 ```bash
 git switch -c codex/chapter-12-safe-recovery
@@ -95,7 +95,7 @@ npm run typecheck
 node src/examples/inspect-input-agent.ts pause
 ```
 
-第 11 篇旧会话仍可只读查看，但缺少 recovery.json，不能补写一个 sealed 就当作已经证明安全。本篇示例使用新会话名。
+第 12 篇旧会话仍可只读查看，但缺少 recovery.json，不能补写一个 sealed 就当作已经证明安全。本篇示例使用新会话名。
 
 ## 新增与修改的文件
 
@@ -143,7 +143,7 @@ RecoveryDecision 用 status 区分两种结果：ready 才提供可安装结果�
 
 ### 2. 导出旧工具的参数检查
 
-本章要让同样的两种读取真正访问隔离的演示文件，参数规则仍复用第 3、7 篇。
+本章要让同样的两种读取真正访问隔离的演示文件，参数规则仍复用第 4、8 篇。
 
 在 `src/examples/read-source-tool.ts` 中，仅将原函数声明行改为：
 
@@ -239,7 +239,7 @@ inspect-recovery-environment.ts 是独立命令入口：终端启动它，它调
 
 先看一个正常环境：两个非空身份字段，加上两项工具名。parseEnvironment 检查字段后复制工具名、排序；清单顺序不同不会造成误判，重复名称则拒绝。sameEnvironment 比较的是两份规范化后的具体值。
 
-这里再次使用第 11 篇 JSON 数据检查。TypeScript 类型不检查磁盘内容，object 和 text 在运行时确认字段，asserts 只是让类型检查器知道检查之后的字符串关系。
+这里再次使用第 12 篇 JSON 数据检查。TypeScript 类型不检查磁盘内容，object 和 text 在运行时确认字段，asserts 只是让类型检查器知道检查之后的字符串关系。
 
 recordDigest 将已验证的 SessionRecord 序列化后生成摘要。下面读取器会用它核对 receipt 对应的是否正是最后这条日志，避免把旧段的许可标记配给新段。它是本地一致性检查，没有签名与密钥，不能抵御能同时改写记录和摘要的攻击者。
 
@@ -258,7 +258,7 @@ map 每次检查一项调用身份，把结果放入新数组。ids 防止同一
 - 写入器把待保存对象交给 parseRecoveryBoundary，取得检查后的对象，再序列化到文件；段结果确认时调用 recordDigest 绑定日志。
 - 读取器先读文件、JSON.parse，再把未知值交给同一个 parseRecoveryBoundary，取得可检查 phase、intents 与 receipt 的对象。随后用 recordDigest 与 sameEnvironment 核对日志和当前环境。
 
-因此，本文件的返回值是检查后的数据或比较结果，接住它们的仍是写入器、读取器；它不会自己读盘、写盘或启动任务。旧 State 的格式继续由第 11 篇 parseSessionRecord 检查。
+因此，本文件的返回值是检查后的数据或比较结果，接住它们的仍是写入器、读取器；它不会自己读盘、写盘或启动任务。旧 State 的格式继续由第 12 篇 parseSessionRecord 检查。
 
 ### 7. 只读门禁：给结论，不启动任务
 
@@ -274,7 +274,7 @@ map 每次检查一项调用身份，把结果放入新数组。ids 防止同一
 
 open 时提前返回 blocked，保留 intents。即使进程在第一次工具中退出、日志还是空的，也能给出 write-1 这样的核查线索，而不是先因“没有 latest”丢掉开始证据。open 且清单为空也不代表安全，只表示没有已确认的完整结束段。
 
-第 11 篇只读查看可降级使用完整日志、报告检查点落后；本篇自动接续有意更严格，要求检查点匹配。不在这里修复尾部、重写检查点或补凭据，因为修复与允许执行不能混成一个无条件动作。
+第 12 篇只读查看可降级使用完整日志、报告检查点落后；本篇自动接续有意更严格，要求检查点匹配。不在这里修复尾部、重写检查点或补凭据，因为修复与允许执行不能混成一个无条件动作。
 
 解析失败或缺少文件时返回 blocked。状态输入、环境输入无效也不会启动工具；异常不被改成某个默认 ready。
 
@@ -284,7 +284,7 @@ open 时提前返回 blocked，保留 intents。即使进程在第一次工具�
 
 ## 阶段三：开始之前留痕，结束之后再确认
 
-现在实现 recovery-store.ts，把运行步骤与磁盘记录接起来。第 11 篇的保存器仍负责 journal.jsonl 和 checkpoint.json；本文件在它外面管理 recovery.json，记录本段是否开始、哪些调用已经获准进入执行、段结果是否足以确认。
+现在实现 recovery-store.ts，把运行步骤与磁盘记录接起来。第 12 篇的保存器仍负责 journal.jsonl 和 checkpoint.json；本文件在它外面管理 recovery.json，记录本段是否开始、哪些调用已经获准进入执行、段结果是否足以确认。
 
 先只跟首次保存的正常例子：Agent 读取源码和测试，然后暂停。调用和返回顺序如下：
 
@@ -319,7 +319,7 @@ open 时提前返回 blocked，保留 intents。即使进程在第一次工具�
 | 字段 | 在本例中装什么 | 为什么要一直留在对象中 |
 |---|---|---|
 | directory、path | 会话目录与其中 recovery.json 的路径 | begin、工具登记、save 都要操作同一个标记文件 |
-| store | 第 11 篇创建的 SessionStore 对象 | 后面用它保存完整结果与关闭日志；它不是一段 JSON |
+| store | 第 12 篇创建的 SessionStore 对象 | 后面用它保存完整结果与关闭日志；它不是一段 JSON |
 | inspectEnvironment | 随时重新检查当前环境的函数 | 当前资源或授权可能变，不能只保存第一次检查的值 |
 | boundary | 本段的阶段、环境、调用清单与凭据 | 构造时是待写初值；之后只有 persist 成功才替换 |
 | tail | 当前写入队列的结束 Promise | 下一份标记修改必须等前一份结束 |
@@ -453,7 +453,7 @@ assertJsonData 在复制前拒绝无法按协议保存的值，structuredClone �
 
 <<< ../snippets/12/src/runtime/recovery-store.ts#explain-log
 
-`this.store` 是内部的第 11 篇保存器。它先写 journal.jsonl，再更新 checkpoint.json；这次 await 成功后，才将本目录 sequence 从 0 加到 1，并把 active 改为 false，表示本段结果保存步骤已经完成。
+`this.store` 是内部的第 12 篇保存器。它先写 journal.jsonl，再更新 checkpoint.json；这次 await 成功后，才将本目录 sequence 从 0 加到 1，并把 active 改为 false，表示本段结果保存步骤已经完成。
 
 此时仍不一定 sealed。结果保存下来了，与所有开始过的调用都已确认，是两件事。active=false 也不保证外部工具都已停止；取消后仍运行的工具，需要通过下面的确认检查保留不确定性。
 
@@ -531,7 +531,7 @@ initialize 若抛错，catch 关闭已创建的原日志，再把错误交回应
 
 <<< ../snippets/12/src/runtime/result-sink.ts
 
-与第 11 篇相比，只增加可选 begin。原 SessionStore 没有它，旧入口照常工作；RecoveryStore 提供它，实例必须等待。save 的失败处理和 ResultSaveError 保留。
+与第 12 篇相比，只增加可选 begin。原 SessionStore 没有它，旧入口照常工作；RecoveryStore 提供它，实例必须等待。save 的失败处理和 ResultSaveError 保留。
 
 ResultSink 只是约定，不是另一个写入器。应用把实际 store 放进 AgentOptions.resultSink，Agent 再调用该对象的方法；真正的方法体在 recovery-store.ts 或原 session-store.ts。接口文件本身不会创建目录或保存数据。
 
@@ -550,7 +550,7 @@ Agent 是应用直接操作的运行实例：接收 run、pause、resume 等请�
 | 顶部导入 | 复用 createRunState | 安装状态时复制并核对历史完整边界 |
 | restore 方法 | 新增只安装暂停结果的入口 | 让新实例拥有已检查的结束快照，不立即执行 |
 | start 的 try 内、调用循环前 | 可选地 await resultSink.begin | 旧标记失效与环境再检查成功后，才发起模型或工具 |
-| 其他输入、暂停、取消、结果保存 | 沿用第 10、11 篇 | 不把恢复逻辑重新塞进循环 |
+| 其他输入、暂停、取消、结果保存 | 沿用第 11、12 篇 | 不把恢复逻辑重新塞进循环 |
 
 **讲解摘录 · 先安装暂停状态（无需写入文件）**
 
@@ -566,7 +566,7 @@ restore 是状态安装方法，不是文件恢复门禁。应用必须先用 in
 
 start 先按旧逻辑占用实例，再进入 try。配置有 begin 才等待；没有则保留旧时序。begin 失败时循环尚未调用，不会发 run-started，finally 仍释放实例。此时错误原样抛出，不包装成“循环结束但保存失败”。
 
-循环结束后的 save 与 lastResult 发布顺序仍和第 11 篇相同。循环本身的 timeout 不覆盖外面的 begin 与 save 文件等待；本篇没有新增磁盘超时控制。
+循环结束后的 save 与 lastResult 发布顺序仍和第 12 篇相同。循环本身的 timeout 不覆盖外面的 begin 与 save 文件等待；本篇没有新增磁盘超时控制。
 
 将 Agent 作为整份文件看，外部恢复入口先调用 restore 安装暂停快照，再调用 resume 提交继续要求。resume 进入 start，start 先等保存器 begin，再调用循环；循环返回完整结果后，start 再等 save，最后把结果交回外部入口。运行期间的实时 State 仍由循环持有，实例只管理进入、退出和结束副本。
 
@@ -850,7 +850,7 @@ node --inspect-brk src/examples/resume-session.ts lesson12 lesson12-debug
 
 ## 完整最终文件
 
-下面是本篇 15 个新增或修改文件，便于核对。其余第 11 篇源码保留；分步完成后应与这里完全一致。故障装置也包含在内，但不参与正常运行主线。
+下面是本篇 15 个新增或修改文件，便于核对。其余第 12 篇源码保留；分步完成后应与这里完全一致。故障装置也包含在内，但不参与正常运行主线。
 
 ### src/runtime/recovery-types.ts
 
@@ -946,7 +946,7 @@ git status --short
 git add -- src/runtime/recovery-types.ts src/runtime/recovery-codec.ts src/runtime/recovery-store.ts src/runtime/recovery-reader.ts src/runtime/result-sink.ts src/runtime/agent.ts src/examples/read-source-tool.ts src/examples/read-tests-tool.ts src/examples/recovery-workspace.ts src/examples/inspect-recovery-environment.ts src/examples/save-recoverable-session.ts src/examples/inspect-recovery.ts src/examples/resume-session.ts src/examples/crash-after-write.ts src/examples/inspect-recovery-faults.ts site/
 git diff --cached --stat
 git commit -F - <<'COMMIT'
-第 12 篇：核对恢复依据并阻止未知操作自动重放
+第 13 篇：核对恢复依据并阻止未知操作自动重放
 
 让新进程在检查已保存暂停结果、资源版本与当前工具授权后继续同一个任务。
 

@@ -5,7 +5,7 @@
 <rect width="900" height="1060" rx="18" fill="#fafcfb"/>
 <g font-family="PingFang SC, Microsoft YaHei, sans-serif" fill="#203b35">
 <text x="35" y="46" font-size="25" font-weight="700">流式显示不等于已经确认动作</text>
-<text x="35" y="78" font-size="17" fill="#52675f">第 06 篇 · 同一次决策中多次显示，最终只交回一个 Action</text>
+<text x="35" y="78" font-size="17" fill="#52675f">第 07 篇 · 同一次决策中多次显示，最终只交回一个 Action</text>
 <g stroke="#b9cec4" stroke-width="1.5">
 <rect x="40" y="110" width="520" height="90" rx="12" fill="#edf3fa"/>
 <rect x="40" y="240" width="520" height="90" rx="12" fill="#edf3fa"/>

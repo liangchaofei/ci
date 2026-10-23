@@ -31,6 +31,10 @@ This branch starts a new Agent Runtime course. The earlier chapters and implemen
 - Rewrite difficult explanations around a concrete normal execution before design and failure details; merge repeated summaries instead of appending more prose. Preserve the agreed small-step code blocks and final file reference.
 - Review responsibility and dependency boundaries before each new capability. Keep model adapters, tool execution, and persistence out of a growing monolithic loop; extract cohesive modules when their responsibilities emerge, explain migration and state ownership, and avoid arbitrary file splitting or unsolicited edits to learner code.
 
+## Chapter numbering
+
+Public chapter titles and references use 01–18. Existing URLs, snippet directory IDs, and Git branch names retain their original 00–17 identifiers for compatibility. The historical implementation identifiers below refer to those original IDs. Keep visible numbering consistent across the homepage, sidebar, chapters, roadmap, diagrams, and articles.
+
 ## Current state
 
 Chapter 00 documents the engineering baseline. The learner has committed Chapter 15 Runtime code and tutorial updates as `44adab4` (Chapter 14: `21ac677`) (Chapter 13: `8850a5d`, Chapter 12: `98cd2ac`, Chapter 11: `c250c1d`, preceding Chapter 11: `b91d7e2`). Chapter 16 and 17 tutorials and cumulative candidate code live under `site/`; preserve the learner's implementation. Do not copy candidate code into the learner's `src/`.

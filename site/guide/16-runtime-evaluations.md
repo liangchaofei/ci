@@ -1,11 +1,11 @@
 ---
-title: 第 16 篇｜让完整场景证明 Runtime 守住了什么
+title: 第 17 篇｜让完整场景证明 Runtime 守住了什么
 description: 从正常诊断的可核对证据出发，构建离线回归场景、判定规则与独立子进程运行器，验证断流、拒绝、迟到结果、乱序、预算与跨进程恢复。
 ---
 
-# 第 16 篇：让完整场景证明 Runtime 守住了什么
+# 第 17 篇：让完整场景证明 Runtime 守住了什么
 
-第 15 篇正常任务能完成，账本也有数值，但这还不能说明各项机制组合后一直正确。比如结果已经保存在 State，却没被放进下一轮模型输入；或者用户拒绝写入后，程序因另一个错误退出，最后文件碰巧没变。只看 completed 或几行日志，都可能漏掉问题。
+第 16 篇正常任务能完成，账本也有数值，但这还不能说明各项机制组合后一直正确。比如结果已经保存在 State，却没被放进下一轮模型输入；或者用户拒绝写入后，程序因另一个错误退出，最后文件碰巧没变。只看 completed 或几行日志，都可能漏掉问题。
 
 本篇建立一组**能重复运行、能自动判断、能留下证据的完整场景**。先沿正常诊断验证反馈闭环，再主动制造断流、权限拒绝、取消后的迟到返回、并行乱序、资源不足和恢复不确定性。
 
@@ -20,7 +20,7 @@ description: 从正常诊断的可核对证据出发，构建离线回归场景�
 我们希望核对：
 
 1. **任务记录**：结束为 completed，接受两次决策，只有一个 read-1 工具观察。
-2. **实际调用与数据**：服务替身确实被调用三次；下一次模型请求里确实有 read-1 的源码结果；用量和未知报告与第 15 篇相符。
+2. **实际调用与数据**：服务替身确实被调用三次；下一次模型请求里确实有 read-1 的源码结果；用量和未知报告与第 16 篇相符。
 3. **事件顺序**：先取得并记录动作，再启动工具，结果保存后才开始下一次决策；结束事件与返回的 Outcome 一致。
 
 若只查第一项，“模型输入漏掉源码”的错误仍可能通过。若只查日志文字，甚至可能有人把错误打印成“完成”。所以本篇从实际返回值、传入依赖的数据和真实文件提取证据，再与**运行前定义的期望**比较。
@@ -65,7 +65,7 @@ Anthropic 的 Agent 评估说明也区分了任务、一次运行、判定器和
 
 ## 前置版本与文件地图
 
-完成并提交第 15 篇后，在仓库根目录运行：
+完成并提交第 16 篇后，在仓库根目录运行：
 
 ```bash
 git status --short
@@ -88,14 +88,14 @@ npm run typecheck
 | src/evaluation/deferred.ts | 新增 | 手工决定依赖返回时刻 |
 | src/evaluation/cases/concurrency.ts | 新增 | 取消后返回、并行乱序两项场景 |
 | src/evaluation/process.ts | 新增 | 启动固定 Node 子进程并保留异常输出 |
-| src/evaluation/recovery-leg.ts | 新增，子进程入口 | 分别保存或接续第 12 篇的会话 |
+| src/evaluation/recovery-leg.ts | 新增，子进程入口 | 分别保存或接续第 13 篇的会话 |
 | src/evaluation/cases/recovery.ts | 新增 | 跨进程接续、未知写入与资源变化三项场景 |
 | src/evaluation/cases/index.ts | 新增 | 汇总已知场景清单 |
 | src/evaluation/case-worker.ts | 新增，子进程入口 | 只运行选中的一项并保存证据 |
 | src/evaluation/runner.ts | 新增 | 每项独立运行，收集、判定与汇总 |
 | src/examples/run-runtime-evaluations.ts | 新增，独立命令 | 选择单项或全量运行，设置退出码 |
 
-共 16 个新增文件、1 个修改文件；阶段四另检查第 12 篇可选故障装置，缺失时给出完整补齐代码。新目录中的代码服务于评估，不是 Agent 的生产执行路径；runtime/ 内的循环、控制、权限、资源与保存代码都保留。
+共 16 个新增文件、1 个修改文件；阶段四另检查第 13 篇可选故障装置，缺失时给出完整补齐代码。新目录中的代码服务于评估，不是 Agent 的生产执行路径；runtime/ 内的循环、控制、权限、资源与保存代码都保留。
 
 先把一项正常场景跑通，再加入故障与全量运行器。标为**“讲解摘录（无需写入文件）”**的代码已经包含在上方完整实现里，不要重复追加；章末收齐最终文件。
 
@@ -175,7 +175,7 @@ requestBodies 由本次场景组装创建，依赖每被调用一次就追加一
 
 <<< ../snippets/16/src/evaluation/cases/normal.ts#normal{ts}
 
-先沿 run 走：复用第 15 篇的组装对象 → 订阅事件 → 调用 agent.run → 接住真实结果 → 保存账本副本、服务替身计数、最后一份模型消息和实际工具观察身份。这里没有把 expected 填进 facts，也没有自己写一个 completed。
+先沿 run 走：复用第 16 篇的组装对象 → 订阅事件 → 调用 agent.run → 接住真实结果 → 保存账本副本、服务替身计数、最后一份模型消息和实际工具观察身份。这里没有把 expected 填进 facts，也没有自己写一个 completed。
 
 criteria 分别核对结果、账本、真实依赖调用与事件阶段。requests 来自门禁，httpCalls 来自服务替身；两处都检查，是为了发现“账本少计了，但依赖实际多发了”的错误。
 
@@ -183,7 +183,7 @@ criteria 分别核对结果、账本、真实依赖调用与事件阶段。reque
 
 <<< ../snippets/16/src/evaluation/cases/normal.ts#feedback{ts}
 
-最后一次模型请求应含 role 为 tool、身份为 read-1 的消息，其 content 是第 5 篇协议序列化的 ToolResult。解析后 value.content 必须等于这次副本源码。这样才能证明“源码结果不仅保存了，还实际进入下一次模型请求”。字段缺失、JSON 无效或内容不符，都不能通过。
+最后一次模型请求应含 role 为 tool、身份为 read-1 的消息，其 content 是第 6 篇协议序列化的 ToolResult。解析后 value.content 必须等于这次副本源码。这样才能证明“源码结果不仅保存了，还实际进入下一次模型请求”。字段缺失、JSON 无效或内容不符，都不能通过。
 
 本例固定八个事件阶段顺序，属于这条正常任务的协议检查，不要求所有 Agent 任务都长这样。common rules 再检查身份、序号和结束一致性。
 
@@ -193,7 +193,7 @@ criteria 分别核对结果、账本、真实依赖调用与事件阶段。reque
 
 <<< ../snippets/16/src/examples/inspect-runtime-evaluation.ts#run{ts}
 
-这个命令只运行 normal。创建独立目录并切换本进程工作目录后，第 15 篇副本函数创建的数据也归入这里；不会改变调用它的终端工作目录。grade 只在原任务返回后执行，不影响任务过程。
+这个命令只运行 normal。创建独立目录并切换本进程工作目录后，第 16 篇副本函数创建的数据也归入这里；不会改变调用它的终端工作目录。grade 只在原任务返回后执行，不影响任务过程。
 
 ```bash
 npm run typecheck
@@ -242,9 +242,9 @@ node src/examples/inspect-runtime-evaluation.ts
 
 <<< ../snippets/16/src/evaluation/cases/permissions.ts#run{ts}
 
-先看 escape 为 false：复用第 13 篇脚本，先读、再提出写；approve 固定回答 false。executed 只在许可入口真正调用执行依赖时追加工具名，所以应该只有 read_source。前后两次读取真实文件，再比较是否变化。
+先看 escape 为 false：复用第 14 篇脚本，先读、再提出写；approve 固定回答 false。executed 只在许可入口真正调用执行依赖时追加工具名，所以应该只有 read_source。前后两次读取真实文件，再比较是否变化。
 
-escape 为 true 时，实验脚本直接提出路径越界的写请求。relative(root, outside) 计算通向实际旁侧文件的相对路径，避免请求指向一个不存在、根本不会被改到的位置。第 13 篇检查器只允许 sum.ts，因此应在执行前拒绝。
+escape 为 true 时，实验脚本直接提出路径越界的写请求。relative(root, outside) 计算通向实际旁侧文件的相对路径，避免请求指向一个不存在、根本不会被改到的位置。第 14 篇检查器只允许 sum.ts，因此应在执行前拒绝。
 
 返回的 facts 包括真实执行依赖的调用名单、文件前后比较和工具错误。错误的 reason 取本项目当前消息中冒号前的类别，只用于回归定位；不会拿它安排 Runtime 重试。
 
@@ -290,7 +290,7 @@ await pending 得到已取消的结果后，先保存实例结果与事件摘要
 
 仅检查 outcome 为 cancelled 不够：如果迟到值又补进了 State，任务表面仍可能写 cancelled。这里同时检查实例结果不变、没有新增 tool 观察，也没有结束后的补发事件。
 
-这个场景没有模拟写操作，不宣称取消能回滚外部副作用；它验证的是第 4 篇的等待与状态保护。
+这个场景没有模拟写操作，不宣称取消能回滚外部副作用；它验证的是第 5 篇的等待与状态保护。
 
 ### 12. 第二个先结束，记录仍按请求对应
 
@@ -304,7 +304,7 @@ await pending 得到已取消的结果后，先保存实例结果与事件摘要
 
 <<< ../snippets/16/src/evaluation/cases/concurrency.ts#release-order{ts}
 
-先放开 tests，收到它的返回确认后再放开 source，因此 completed 必须是 tests-1、source-1。原第 7 篇批次执行器收齐后，State 的 tool 消息应仍是 source-1 配 source、tests-1 配 tests。
+先放开 tests，收到它的返回确认后再放开 source，因此 completed 必须是 tests-1、source-1。原第 8 篇批次执行器收齐后，State 的 tool 消息应仍是 source-1 配 source、tests-1 配 tests。
 
 判定把身份和值一起比较：只查 ID 顺序，可能漏掉值写错位置。这个模块的两个场景都控制依赖返回时刻，生产代码没有读取这些开关，也没有新增一套并发调度。
 
@@ -334,7 +334,7 @@ runNode 接收已知脚本路径、参数、工作目录与预期退出码，直
 
 <<< ../snippets/16/src/evaluation/recovery-leg.ts#run{ts}
 
-这份入口从第 12 篇迁移已有组装，不新增恢复协议。save 模式创建 saved 会话，读取两项材料后请求暂停；resume 模式先 inspectRecovery，通过才创建新保存器、安装暂停状态，再接收已有的 steerText。
+这份入口从第 13 篇迁移已有组装，不新增恢复协议。save 模式创建 saved 会话，读取两项材料后请求暂停；resume 模式先 inspectRecovery，通过才创建新保存器、安装暂停状态，再接收已有的 steerText。
 
 计数包在实际 execute 外面：原工具真正被调用才 executions 加一。每个进程写自己的 save-evidence.json 或 resume-evidence.json，里面是实际 result、事件摘要与计数，而不是打印一行“应该执行 0 次”。finally 沿用原保存器关闭。
 
@@ -368,7 +368,7 @@ run 先启动 save 进程，读回证据，保存旧 journal 原文；该进程�
 
 ### 17. 写入发生了，进程却没交回结果
 
-本项复用第 12 篇可选故障实验中的 `src/examples/crash-after-write.ts`。先确认文件存在：
+本项复用第 13 篇可选故障实验中的 `src/examples/crash-after-write.ts`。先确认文件存在：
 
 ```bash
 test -f src/examples/crash-after-write.ts
@@ -389,7 +389,7 @@ test -f src/examples/crash-after-write.ts
 
 <<< ../snippets/16/src/evaluation/cases/recovery.ts#crash{ts}
 
-这里启动第 12 篇已经存在的 crash-after-write.ts：它先在本场景目录追加一行并同步，再以 23 退出，来不及返回 ToolResult。之后只调用恢复检查器。
+这里启动第 13 篇已经存在的 crash-after-write.ts：它先在本场景目录追加一行并同步，再以 23 退出，来不及返回 ToolResult。之后只调用恢复检查器。
 
 证据必须同时包括：真实文件有一行，退出码为 23，恢复结果 blocked，待核查调用为 write-1，检查后文件没有变成两行。只查 blocked，不能证明我们真的造出了写后未知的情况；只查一行，又不能证明恢复会阻止盲目接续。
 
@@ -403,7 +403,7 @@ result 为 null、trace 为空，是因为这次故障进程没有正常返回�
 
 先用同一个 save 入口得到合法暂停点，再改真实工作区的 sum.ts，最后用当前环境调用 inspectRecovery。期望被阻止的原因确实是资源或工具授权改变，旧 journal 保持原文。
 
-这项检查不尝试“给旧证据改个新版本”来让它通过。它检查第 12 篇恢复前置条件，既不授予新权限，也不声明已经实现任意崩溃的自动修复。
+这项检查不尝试“给旧证据改个新版本”来让它通过。它检查第 13 篇恢复前置条件，既不授予新权限，也不声明已经实现任意崩溃的自动修复。
 
 ## 阶段五：一项一个进程，汇总成可重复运行的套件
 
@@ -699,7 +699,7 @@ git add src/evaluation/ src/examples/crash-after-write.ts \
   src/examples/run-runtime-evaluations.ts \
   site/ AGENTS.md TUTORIAL-WRITING.md
 git commit -F - <<'COMMIT'
-第 16 篇：用完整场景评估运行边界并保留证据
+第 17 篇：用完整场景评估运行边界并保留证据
 
 为正常反馈、预算、断流、拒绝、取消与并发定义可核对的标准。
 增加跨进程恢复、资源变化和写后未知副作用的独立场景。

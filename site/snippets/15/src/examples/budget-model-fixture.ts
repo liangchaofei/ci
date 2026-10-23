@@ -1,7 +1,7 @@
 // #region fixture
 import { createRetryModelFixture } from "./retry-model-fixture.ts";
 
-/** 沿用第 14 篇的 503 和动作响应，只为成功响应补上本例固定 usage。 */
+/** 沿用第 15 篇的 503 和动作响应，只为成功响应补上本例固定 usage。 */
 export function createBudgetModelFixture() {
   const original = createRetryModelFixture();
   const send: typeof fetch = async (url, init) => {

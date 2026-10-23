@@ -33,7 +33,7 @@ try {
       boundary.receipt.digest = "0".repeat(64);
       await writeFile(path, JSON.stringify(boundary));
     }
-    // 去掉本章新增的标记，复现第 11 篇旧会话“可读但缺恢复依据”的情况。
+    // 去掉本章新增的标记，复现第 12 篇旧会话“可读但缺恢复依据”的情况。
     if (mode === "old") await rm(join(directory, "recovery.json"));
   }
 
