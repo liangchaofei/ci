@@ -44,7 +44,6 @@ export default defineConfig({
       },
     ],
     search: { provider: "local" },
-    socialLinks: [{ icon: "github", link: "https://github.com/liangchaofei/ci" }],
     outline: { level: [2, 3], label: "本页目录" },
     docFooter: { prev: "上一篇", next: "下一篇" },
     footer: { message: "用可运行的证据理解 Agent Runtime", copyright: "课程源码与章节版本以本仓库为准" },
