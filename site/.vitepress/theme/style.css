@@ -20,16 +20,6 @@
 .vp-doc table { display: block; overflow-x: auto; }
 .vp-doc .custom-block { border-radius: 10px; }
 
-.course-status {
-  border: 1px solid #c7ddcd;
-  background: #edf7ee;
-  border-radius: 12px;
-  padding: 18px 20px;
-  margin: 26px 0;
-}
-.course-status strong { color: #236a49; }
-.course-status p { margin: 4px 0 0; }
-
 .runtime-chain {
   display: grid;
   gap: 9px;
